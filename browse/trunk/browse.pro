@@ -9,7 +9,12 @@ end
 
 pro close_z_buffer
     image=tvrd()
-    set_plot, 'x'
+    thisOS = strupcase(STRMID(!VERSION.OS_FAMILY, 0, 3))
+    CASE thisOS of
+        'MAC': SET_PLOT, thisOS
+        'WIN': SET_PLOT, thisOS
+        ELSE: SET_PLOT, 'X'
+    ENDCASE
     tv, image
 end
 
