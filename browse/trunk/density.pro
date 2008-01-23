@@ -5,25 +5,14 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
     compile_opt idl2, hidden
     on_error, 2
 
+    z_error = 0
     z0 = reform(z)
     if n_elements(nlevels) eq 0 then $
-        nlevels=100
+        nlevels=60
     if n_elements(zmax) eq 0 then $
         zmax = max(z0)
     if n_elements(zmin) eq 0 then $
         zmin = min(z0)
-    if keyword_set(zlog) then begin
-        zmax = floor(alog10(zmax))+1
-        if zmin le 0 then $
-            zmin = min(z0[where(z0 gt 0)])
-        zmin = floor(alog10(zmin))
-        spacing = float(zmax - zmin) / nlevels
-        levels=10.^(findgen(nlevels)*spacing + zmin)
-    endif else begin       
-        spacing = float(zmax - zmin) / nlevels
-        levels = findgen(nlevels)*spacing + zmin
-    endelse
-    c_colors = bytscl(levels, top=254)
     
     if !p.charsize eq 0.0 then begin
         charsize = 1.0 
@@ -42,10 +31,45 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
         old_region = !p.region
         !p.region=[0.0, 0.0, 0.87 - 0.05*bar_pad, 1.0]
     endif
+
+
+    if keyword_set(zlog) then begin
+        if zmin le 0 then begin
+            if zmax le 0 then begin
+                z_error = 1
+                zmin = 1.
+                zmax = 9.
+            endif else begin
+                zmin = min(z0[where(z0 gt 0)])
+            endelse
+        endif
+        zmax = floor(alog10(zmax))+1
+        zmin = floor(alog10(zmin))
+        spacing = float(zmax - zmin) / nlevels
+        levels=10.^(findgen(nlevels)*spacing + zmin)
+    endif else begin       
+        spacing = float(zmax - zmin) / nlevels
+        levels = findgen(nlevels)*spacing + zmin
+    endelse
+    c_colors = bytscl(levels, top=254)
+
+    if zmin ge zmax then begin
+        z_error = 1
+        zmax = zmin + 1
+    endif
+
+    ; if we have an error, then make a blank plot by undefining the contour levels and zeroing out z0.
+    if z_error then begin
+        void = temporary(levels)  
+        void = temporary(c_colors)
+        z0[*,*] = 0
+    endif  
+
     if n_elements(x) eq 0 then $
         contour, z0, /fill, nlevels=nlevels, levels=levels, c_colors=c_colors, _extra=extra $
     else $
         contour, z0, x, y, /fill, nlevels=nlevels, levels=levels, c_colors=c_colors, _extra=extra
+
     if keyword_set(colorbar) then begin
         if keyword_set(zlog) then $
             format='(%"' + TeXtoIDL('10^{%i}') + '")' $

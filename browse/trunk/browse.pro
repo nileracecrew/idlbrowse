@@ -356,7 +356,7 @@ end
 
 ;------------------------------------------------------------------------------
 
-function slider_value_change, slider, sliderValue, q, qs
+function slider_value_change, slider, q, qs
     compile_opt idl2, hidden
 
     widget_control, slider.value_id, get_value=q_value
@@ -469,7 +469,7 @@ pro ContourRanges, event
     endcase
     changed = 0
     case strmid(name, 8, 3) of 
-       'MIN': if state.contour_axes[dir].min ne value then begin
+        'MIN': if state.contour_axes[dir].min ne value then begin
                    changed = 1 
                    state.contour_axes[dir].min = value
                endif            
@@ -1072,7 +1072,7 @@ pro browse, data_in, t_in, x_in, y_in, p=p, f=f, labels=labels, h5select=h5selec
 
     widget_control, /hourglass
     
-    if (size(data_in, /type) eq 11) && (obj_class(data_in) eq 'H5VAR') then begin
+    if (size(data_in, /type) eq 11) && (obj_class(data_in) eq 'H5VARIABLE') then begin
         message, 'Restoring H5VAR dataset...', /info
         data = reform(data_in->r(select=h5select))
     endif else begin
@@ -1083,7 +1083,10 @@ pro browse, data_in, t_in, x_in, y_in, p=p, f=f, labels=labels, h5select=h5selec
             data = reform(temporary(data_in))
         endelse
     endelse
-
+    nonfinite = where(~finite(data), count)
+    if count gt 0 then begin
+        message, 'Data has non-finite elements such as NaN or Inf.'
+    endif
     dims = size(data, /dimensions)
     ndims = n_elements(dims)
     if ndims eq 2 then begin
