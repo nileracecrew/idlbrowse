@@ -1262,13 +1262,33 @@ end
 
 
 pro browse, data_in, t_in, x_in, y_in, $
-        p=p, f=f, labels=labels, h5select=h5select
+        ttitle=ttitle, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
+        p=p, f=f, h5select=h5select, help=help
+
     compile_opt idl2, hidden
     on_error, 2
 
     if !VERSION.OS_FAMILY ne 'unix' then $
         message, 'Browse currently only supports IDL on Unix platforms' + $
             '(including OS X).'
+
+    if keyword_set(help) || (n_params() eq 0) then begin
+        print
+        print, 'Usage: browse, <dataset>, <t>, <x>, <y>, [ keywords ]'
+        print, '    where <dataset> is a 3D or 4D array, or an h5variable object;'
+        print, '    and <t>, <x>, and <y> are 1D arrays of axis labels.'
+        print
+        print, 'Keywords: '
+        print, '    [txyz]title: A string specifying the plot titles for each dimension.'
+        print, '                 Defaults are [''t'', ''x'', ''y'', ''data''].'
+        print, '    p: 3-element array specifying how to permute the dataset dimensions.'
+        print, '       For example, [2, 1, 0] swaps the first and third dimensions.'
+        print, '    /f: Set this flag to title the t axis as f (for FFTs).'
+        print, '    /h5select: Use the current selection on an h5variable dataset.'
+        print, '    /help: Print this message.'
+        print
+        return
+    endif
 
     restore_plot
     device, decomposed=0
@@ -1319,15 +1339,16 @@ pro browse, data_in, t_in, x_in, y_in, $
             "array."
     endif
 
-   if ~keyword_set(labels) then begin
-        if keyword_set(f) then $
-            labels = [ 'f', 'x', 'y', dataset_name ] $
-        else $
-            labels = [ 't', 'x', 'y', dataset_name ]
-    endif else if n_elements(labels) ne 4 then begin
-        message, "LABELS must be a 4-element array."
-    endif
+    if keyword_set(f) then $
+        labels = [ 'f', 'x', 'y', dataset_name ] $
+    else $
+        labels = [ 't', 'x', 'y', dataset_name ]
 
+    if n_elements(ttitle) ne 0 then labels[0] = ttitle
+    if n_elements(xtitle) ne 0 then labels[1] = xtitle
+    if n_elements(ytitle) ne 0 then labels[2] = ytitle
+    if n_elements(ztitle) ne 0 then labels[3] = ztitle
+    
     state = init_state(data, t_in[0:s[0]-1], x_in[0:s[1]-1], y_in[0:s[2]-1], $
         labels, p=p)
 
