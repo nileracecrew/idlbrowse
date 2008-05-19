@@ -43,8 +43,8 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
                 zmin = min(z0[where(z0 gt 0)])
             endelse
         endif
-        zmax = floor(alog10(zmax))+1
-        zmin = floor(alog10(zmin))
+        zmax = alog10(zmax)
+        zmin = alog10(zmin)
         spacing = float(zmax - zmin) / nlevels
         levels=10.^(findgen(nlevels)*spacing + zmin)
     endif else begin       
