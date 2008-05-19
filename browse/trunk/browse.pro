@@ -15,11 +15,13 @@ end
 
 ;------------------------------------------------------------------------------
 
-pro contour_plot, state, scale
+pro contour_plot, state, scale, no_z_buffer = no_z_buffer
     compile_opt idl2, hidden
 
-    geometry = widget_info(state.wContour, /geometry)
-    open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+    if ~keyword_set(no_z_buffer) then begin
+        geometry = widget_info(state.wContour, /geometry)
+        open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+    endif
 
     density_params = { $
         colorbar: 1, xstyle: 1, ystyle: 1, charsize: 1.4*scale, $
@@ -60,16 +62,20 @@ pro contour_plot, state, scale
     plots, [min(state.x), max(state.x)], $
         [state.y[state.yi], state.y[state.yi]], /data, thick=2.0*scale, $
         clip=clip, noclip=0
-    close_z_buffer
+    if ~keyword_set(no_z_buffer) then $
+        close_z_buffer
 end
 
 ;------------------------------------------------------------------------------
 
-pro surface_plot, state, scale, shade=shade
+pro surface_plot, state, scale, shade=shade, no_z_buffer=no_z_buffer
     compile_opt idl2, hidden
 
-    geometry = widget_info(state.wContour, /geometry)
-    open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+    if ~keyword_set(no_z_buffer) then begin
+        geometry = widget_info(state.wContour, /geometry)
+        open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+    endif
+
     surface_params = { $
         xstyle: 1, ystyle: 1, zstyle: 1, save: 1, charsize: 2.5*scale, $
         charthick: 1.0*scale, thick: 1.0*scale, t3d: 1, $
@@ -123,24 +129,28 @@ pro surface_plot, state, scale, shade=shade
         plots, state.x, replicate(state.y[state.yi], n_elements(state.x)), $
             data[*, state.yi], /data, thick=4.*scale, color=255, /t3d
     endelse          
-    close_z_buffer
+    if ~keyword_set(no_z_buffer) then $
+        close_z_buffer
 end
 
 ;------------------------------------------------------------------------------
 
-pro shadesurf_plot, state, scale
+pro shadesurf_plot, state, scale, no_z_buffer=no_z_buffer
     compile_opt idl2, hidden
 
-    surface_plot, state, scale, /shade
+    surface_plot, state, scale, /shade, no_z_buffer=no_z_buffer
 end
 
 ;------------------------------------------------------------------------------
 
-pro velovect_plot, state, scale
+pro velovect_plot, state, scale, no_z_buffer=no_z_buffer
     compile_opt idl2, hidden
     
-    geometry = widget_info(state.wContour, /geometry)
-    open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+    if ~keyword_set(no_z_buffer) then begin
+        geometry = widget_info(state.wContour, /geometry)
+        open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+    endif
+ 
     velovect_params = { $
         colorbar: 1, xstyle: 1, ystyle: 1, charsize: 1.4*scale, $
         charthick: 1.0*scale, bar_pad: 1.4, $
@@ -176,7 +186,8 @@ pro velovect_plot, state, scale
     plots, [min(state.x), max(state.x)], $
         [state.y[state.yi], state.y[state.yi]], /data, $ 
         thick=2.0*scale, clip=clip, noclip=0
-    close_z_buffer
+    if ~keyword_set(no_z_buffer) then $
+        close_z_buffer
 end
 
 ;------------------------------------------------------------------------------
@@ -837,27 +848,34 @@ pro PNGButton, event
     filename = dialog_pickfile(filter='*.png', get_path=path, $
         dialog_parent=event.top)
     if filename ne '' then begin
+        scale = 2.0
+        geometry = widget_info(state.wContour, /geometry)
+        png_xsize = geometry.draw_xsize*scale
+        png_ysize = geometry.draw_ysize*scale
+        geometry = widget_info(state.wXCut, /geometry)
+        png_xcut_xsize = geometry.draw_xsize*scale
+        png_xcut_ysize = geometry.draw_ysize*scale
+        geometry = widget_info(state.wYCut, /geometry)
+        png_ycut_xsize = geometry.draw_xsize*scale
+        png_ycut_ysize = geometry.draw_ysize*scale
+ 
         basename = file_basename(filename, '.png', /fold_case) 
-        !p.background = 255
-        !p.color = 0
-; XXX
-        window, /free, xsize=1200, ysize=1000, /pixmap
+        window, /free, xsize=png_xsize, ysize=png_ysize, /pixmap
         case widget_info(state.wContourType, /droplist_select) of
-            0: contour_plot, state, 2.0
-            1: surface_plot, state, 2.0
-            2: shadesurf_plot, state, 2.0
-            3: velovect_plot, state, 2.0
+            0: contour_plot, state, scale, /no_z_buffer
+            1: surface_plot, state, scale, /no_z_buffer
+            2: shadesurf_plot, state, scale, /no_z_buffer
+            3: velovect_plot, state, scale, /no_z_buffer
         endcase
         write_png, path + basename + '.png', tvrd(/true)
         wdelete
-        window, /free, xsize=840, ysize=560, /pixmap
-        xcut_plot, state, 2.0
+        window, /free, xsize=png_xcut_xsize, ysize=png_xcut_ysize, /pixmap
+        xcut_plot, state, scale
         write_png, path + basename + '_xcut.png', tvrd(/true)
-        erase
-        ycut_plot, state, 2.0
+        wdelete
+        window, /free, xsize=png_ycut_xsize, ysize=png_ycut_ysize, /pixmap
+        ycut_plot, state, scale
         write_png, path + basename + '_ycut.png', tvrd(/true)
-        !p.background = 0
-        !p.color = 255
     endif
 
     widget_control, event.top, SET_UVALUE=state, /no_copy
