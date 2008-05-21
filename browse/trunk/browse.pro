@@ -1,12 +1,23 @@
 ;------------------------------------------------------------------------------
-
-pro open_z_buffer, x, y, scale
+;+
+; Open a Z-buffer for doing buffered writes to the draw widgets.
+;
+; :Params:
+;    x : in, required, type=integer
+;       Horizontal size of Z buffer in pixels
+;    y : in, required, type=integer
+;       Vertical size of Z buffer in pixels
+;
+;-
+pro open_z_buffer, x, y
     set_plot, 'z'
-    device, set_resolution=[x,y]*scale, decomposed=0, set_character_size=[6,10]
+    device, set_resolution=[x,y], decomposed=0, set_character_size=[6,10]
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Write the contents of the Z-buffer to the 'X' device.
+;-
 pro close_z_buffer
     image=tvrd()
     set_plot, 'X'
@@ -14,13 +25,26 @@ pro close_z_buffer
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Create a filled contour plot of the current slice.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;
+; :Keywords:
+;    no_z_buffer : in, optional, type=boolean
+;       Set this keyword to disable buffered writes to the graphics window.
+;
+;-
 pro contour_plot, state, scale, no_z_buffer = no_z_buffer
     compile_opt idl2, hidden
 
     if ~keyword_set(no_z_buffer) then begin
-        geometry = widget_info(state.wContour, /geometry)
-        open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+        geometry = widget_info(state.wMainPlot, /geometry)
+        open_z_buffer, geometry.draw_xsize*scale, geometry.draw_ysize*scale
     endif
 
     density_params = { $
@@ -28,15 +52,15 @@ pro contour_plot, state, scale, no_z_buffer = no_z_buffer
         charthick: 1.0*scale, bar_pad: 1.4, $
         xthick: 1.0*scale, ythick: 1.0*scale, zthick: 1.0*scale, $
         thick: 1.0*scale, $
-        xrange: [state.contour_axes[0].min, state.contour_axes[0].max], $
-        yrange: [state.contour_axes[1].min, state.contour_axes[1].max], $
-        zmin: state.contour_axes[2].min, zmax: state.contour_axes[2].max, $
-        xlog: state.contour_axes[0].log, ylog: state.contour_axes[1].log, $
-        zlog: state.contour_axes[2].log, isotropic: state.iso, $
-        title: state.labels[0]+ ' = ' + string(state.t[state.ti], $
+        xrange: [state.mainplot_axes[0].min, state.mainplot_axes[0].max], $
+        yrange: [state.mainplot_axes[1].min, state.mainplot_axes[1].max], $
+        zmin: state.mainplot_axes[2].min, zmax: state.mainplot_axes[2].max, $
+        xlog: state.mainplot_axes[0].log, ylog: state.mainplot_axes[1].log, $
+        zlog: state.mainplot_axes[2].log, isotropic: state.iso, $
+        title: state.titles[0]+ ' = ' + string(state.t[state.ti], $
             format='(g0.5)'), $
-        xtitle: state.labels[1], ytitle: state.labels[2], $
-        bar_title: state.labels[3] $
+        xtitle: state.titles[1], ytitle: state.titles[2], $
+        bar_title: state.titles[3] $
     }
     if state.reduced then begin
         if state.zi eq 0 then $
@@ -54,8 +78,8 @@ pro contour_plot, state, scale, no_z_buffer = no_z_buffer
                 state.y, _extra = density_params
     endelse
 
-    clip = [ state.contour_axes[0].min, state.contour_axes[1].min, $
-        state.contour_axes[0].max, state.contour_axes[1].max ]
+    clip = [ state.mainplot_axes[0].min, state.mainplot_axes[1].min, $
+        state.mainplot_axes[0].max, state.mainplot_axes[1].max ]
     plots, [state.x[state.xi], state.x[state.xi]], $
         [min(state.y), max(state.y)], /data, thick=2.0*scale, clip=clip, $
         noclip=0
@@ -67,25 +91,40 @@ pro contour_plot, state, scale, no_z_buffer = no_z_buffer
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Create a wireframe or shaded surface plot of the current slice.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;
+; :Keywords:
+;    shade : in, optional, type=boolean
+;       Set this keyword to use SHADE_SURF instead of SURFACE.
+;    no_z_buffer : in, optional, type=boolean
+;       Set this keyword to disable buffered writes to the graphics window.
+;
+;-
 pro surface_plot, state, scale, shade=shade, no_z_buffer=no_z_buffer
     compile_opt idl2, hidden
 
     if ~keyword_set(no_z_buffer) then begin
-        geometry = widget_info(state.wContour, /geometry)
-        open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+        geometry = widget_info(state.wMainPlot, /geometry)
+        open_z_buffer, geometry.draw_xsize*scale, geometry.draw_ysize*scale
     endif
 
     surface_params = { $
         xstyle: 1, ystyle: 1, zstyle: 1, save: 1, charsize: 2.5*scale, $
         charthick: 1.0*scale, thick: 1.0*scale, t3d: 1, $
         xthick: 1.0*scale, ythick: 1.0*scale, zthick: 1.0*scale, $
-        xlog: state.contour_axes[0].log, ylog: state.contour_axes[1].log, $
-        zlog: state.contour_axes[2].log, isotropic: state.iso, $
-        zrange: [state.contour_axes[2].min, state.contour_axes[2].max], $
-        title: state.labels[0]+ ' = ' + string(state.t[state.ti], $
+        xlog: state.mainplot_axes[0].log, ylog: state.mainplot_axes[1].log, $
+        zlog: state.mainplot_axes[2].log, isotropic: state.iso, $
+        zrange: [state.mainplot_axes[2].min, state.mainplot_axes[2].max], $
+        title: state.titles[0]+ ' = ' + string(state.t[state.ti], $
             format='(g0.5)'), $
-        xtitle: state.labels[1], ytitle: state.labels[2] $
+        xtitle: state.titles[1], ytitle: state.titles[2] $
     }
 
     if state.reduced then begin
@@ -94,8 +133,8 @@ pro surface_plot, state, scale, shade=shade, no_z_buffer=no_z_buffer
         endif else begin
             data = reform((*state.data_red)[state.ti, *, *, state.zi - 1])
         endelse
-        shades = reform(bytscl(data, top=254, min=state.contour_axes[2].min, $
-            max=state.contour_axes[2].max))
+        shades = reform(bytscl(data, top=254, min=state.mainplot_axes[2].min, $
+            max=state.mainplot_axes[2].max))
         xi_red = index(*state.x_red, state.x[state.xi])
         yi_red = index(*state.y_red, state.y[state.yi])
         if keyword_set(shade) then $
@@ -116,8 +155,8 @@ pro surface_plot, state, scale, shade=shade, no_z_buffer=no_z_buffer
         endif else begin
             data = reform((*state.data)[state.ti, *, *, state.zi - 1])
         endelse
-        shades = reform(bytscl(data, top=254, min=state.contour_axes[2].min, $
-                                max=state.contour_axes[2].max))
+        shades = reform(bytscl(data, top=254, min=state.mainplot_axes[2].min, $
+                                max=state.mainplot_axes[2].max))
         if keyword_set(shade) then $
             shade_surf, data, state.x, state.y, shades=shades, $
                 _extra=surface_params $
@@ -134,7 +173,20 @@ pro surface_plot, state, scale, shade=shade, no_z_buffer=no_z_buffer
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Create a shaded surface plot of the current slice.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;
+; :Keywords:
+;    no_z_buffer : in, optional, type=boolean
+;       Set this keyword to disable buffered writes to the graphics window.
+;
+;-
 pro shadesurf_plot, state, scale, no_z_buffer=no_z_buffer
     compile_opt idl2, hidden
 
@@ -142,13 +194,26 @@ pro shadesurf_plot, state, scale, no_z_buffer=no_z_buffer
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Create a vector field arrow plot of the current slice.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;
+; :Keywords:
+;    no_z_buffer : in, optional, type=boolean
+;       Set this keyword to disable buffered writes to the graphics window.
+;
+;-
 pro velovect_plot, state, scale, no_z_buffer=no_z_buffer
     compile_opt idl2, hidden
     
     if ~keyword_set(no_z_buffer) then begin
-        geometry = widget_info(state.wContour, /geometry)
-        open_z_buffer, geometry.draw_xsize, geometry.draw_ysize, scale
+        geometry = widget_info(state.wMainPlot, /geometry)
+        open_z_buffer, geometry.draw_xsize*scale, geometry.draw_ysize*scale
     endif
  
     velovect_params = { $
@@ -156,19 +221,19 @@ pro velovect_plot, state, scale, no_z_buffer=no_z_buffer
         charthick: 1.0*scale, bar_pad: 1.4, $
         xthick: 1.0*scale, ythick: 1.0*scale, zthick: 1.0*scale, $
         thick: 1.0*scale, $
-        xrange: [state.contour_axes[0].min, state.contour_axes[0].max], $
-        yrange: [state.contour_axes[1].min, state.contour_axes[1].max], $
-        clip: [ state.contour_axes[0].min, state.contour_axes[1].min, $
-                state.contour_axes[0].max, state.contour_axes[1].max ], $
+        xrange: [state.mainplot_axes[0].min, state.mainplot_axes[0].max], $
+        yrange: [state.mainplot_axes[1].min, state.mainplot_axes[1].max], $
+        clip: [ state.mainplot_axes[0].min, state.mainplot_axes[1].min, $
+                state.mainplot_axes[0].max, state.mainplot_axes[1].max ], $
         noclip: 0, $
-        lmin: state.contour_axes[2].min, lmax: state.contour_axes[2].max, $
-        xlog: state.contour_axes[0].log, ylog: state.contour_axes[1].log, $
+        lmin: state.mainplot_axes[2].min, lmax: state.mainplot_axes[2].max, $
+        xlog: state.mainplot_axes[0].log, ylog: state.mainplot_axes[1].log, $
         isotropic: state.iso, $
-        length: state.max_mag[state.ti]/state.contour_axes[2].max*2., $
-        title: state.labels[0]+ ' = ' + string(state.t[state.ti], $
+        length: state.max_mag[state.ti]/state.mainplot_axes[2].max*2., $
+        title: state.titles[0]+ ' = ' + string(state.t[state.ti], $
             format='(g0.5)'), $
-        xtitle: state.labels[1], ytitle: state.labels[2], $
-        bar_title: state.labels[3]  $
+        xtitle: state.titles[1], ytitle: state.titles[2], $
+        bar_title: state.titles[3]  $
     } 
     if state.reduced then begin
         velovectcolor, (*state.data_red)[state.ti, *, *, 0], $
@@ -191,7 +256,15 @@ pro velovect_plot, state, scale, no_z_buffer=no_z_buffer
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Draws the x-cut plot for the current slice and y selection.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;-
 pro xcut_plot, state, scale
     compile_opt idl2, hidden
 
@@ -202,9 +275,9 @@ pro xcut_plot, state, scale
         xrange: [state.cut_axes[0,0].min, state.cut_axes[0,0].max], $
         yrange: [state.cut_axes[0,1].min, state.cut_axes[0,1].max], $
         xlog: state.cut_axes[0,0].log, ylog: state.cut_axes[0,1].log, $
-        title: state.labels[2] + ' = ' + string(state.y[state.yi], $
+        title: state.titles[2] + ' = ' + string(state.y[state.yi], $
             format='(g0.5)'), $
-        xtitle: state.labels[1], ytitle: state.labels[3] $
+        xtitle: state.titles[1], ytitle: state.titles[3] $
     }
     if state.zi eq 0 then $
         cut = (*state.mag)[state.ti, *, state.yi] $
@@ -214,7 +287,15 @@ pro xcut_plot, state, scale
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Draws the y-cut plot for the current slice and x selection.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;-
 pro ycut_plot, state, scale
     compile_opt idl2, hidden
 
@@ -225,9 +306,9 @@ pro ycut_plot, state, scale
         xrange: [state.cut_axes[1,0].min, state.cut_axes[1,0].max], $
         yrange: [state.cut_axes[1,1].min, state.cut_axes[1,1].max], $
         xlog: state.cut_axes[1,0].log, ylog: state.cut_axes[1,1].log, $
-        title: state.labels[1] + ' = ' + string(state.x[state.xi], $
+        title: state.titles[1] + ' = ' + string(state.x[state.xi], $
             format='(g0.5)'), $
-        xtitle: state.labels[2], ytitle: state.labels[3] $
+        xtitle: state.titles[2], ytitle: state.titles[3] $
     }
     if state.zi eq 0 then $
         cut = (*state.mag)[state.ti, state.xi, *] $
@@ -237,14 +318,21 @@ pro ycut_plot, state, scale
 end
 
 ;------------------------------------------------------------------------------
-
-pro contour_redraw, state
+;+
+; Draws the 2D slice plot in the main plot area. 
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;-
+pro mainplot_redraw, state
     compile_opt idl2, hidden
 
-    plot_state = save_plot_state()
-    widget_control, state.wContour, get_value=win
+    plot_state = current_plot_state()
+    scale3, az=state.rotation.zangle, ax=state.rotation.xangle
+    widget_control, state.wMainPlot, get_value=win
     wset, win
-    case widget_info(state.wContourType, /droplist_select) of
+    case widget_info(state.wMainPlotType, /droplist_select) of
         0: contour_plot, state, 1.0
         1: surface_plot, state, 1.0
         2: shadesurf_plot, state, 1.0
@@ -254,11 +342,17 @@ pro contour_redraw, state
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Draws the x-cut plot in its plot area. 
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;-
 pro xcut_redraw, state
     compile_opt idl2, hidden
 
-    plot_state = save_plot_state()
+    plot_state = current_plot_state()
     widget_control, state.wXcut, get_value=win
     wset, win
     xcut_plot, state, 1.0
@@ -266,11 +360,17 @@ pro xcut_redraw, state
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Draws the y-cut plot in its plot area. 
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;-
 pro ycut_redraw, state
     compile_opt idl2, hidden
 
-    plot_state = save_plot_state()
+    plot_state = current_plot_state()
     widget_control, state.wYcut, get_value=win
     wset, win
     ycut_plot, state, 1.0
@@ -278,152 +378,194 @@ pro ycut_redraw, state
 end
 
 ;------------------------------------------------------------------------------
-
-pro ContourMouseEvent, event
-    compile_opt idl2, hidden
-
-    widget_control, event.top, GET_UVALUE=state, /no_copy
-
-    if (state.contour_type eq 1) || (state.contour_type eq 2) then begin
-        widget_control, state.wContour, get_value=win
-        plot_state = save_plot_state()
-        wset, win
-        xsize = !d.x_size
-        ysize = !d.y_size
-        restore_plot_state, plot_state
-        widget_control, event.id, get_uvalue=rot_state, /no_copy
-        if rot_state.rotating then begin
-            x = 2.*event.x/xsize - 1
-            y = 2.*event.y/ysize - 1 
-            rot_state.xangle += -atan(y - rot_state.y0) * 180. / !pi
-            rot_state.zangle += atan(x - rot_state.x0) * 180. / !pi 
-            rot_state.zangle = rot_state.zangle mod 360.
-            ; Keep the data z-axis in the positive device y-axis so that 
-            ; left-right mouse motions don't become completely non-intuitive. 
-            rot_state.xangle = (rot_state.xangle < 90.) > (-90.)
-            scale3, az=rot_state.zangle, ax=rot_state.xangle
-            contour_redraw, state
-            rot_state.x0 = x
-            rot_state.y0 = y
-        endif
-    
-        if event.press then begin
-            rot_state.rotating = 1
-            rot_state.x0 = 2.*event.x/xsize - 1
-            rot_state.y0 = 2.*event.y/ysize - 1
-        endif
-    
-        if event.release then begin
-            print, rot_state.xangle, rot_state.zangle
-            rot_state.rotating = 0
-        endif 
-        widget_control, event.id, set_uvalue=rot_state, /no_copy
-    endif
-    widget_control, event.top, SET_UVALUE=state, /no_copy
-end
-
-;------------------------------------------------------------------------------
-
+;+
+; Handle events from the slice selection slider.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Slider event structure
+;-
 pro Tslider, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    state.ti = slider_change(state.wSlider[0], state.t, state.ts)
-    contour_redraw, state
+    state.ti = slider_index(state.wSlider[0], state.t, state.ts)
+    mainplot_redraw, state
     xcut_redraw, state
     ycut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the slice selection text field.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Field event structure
+;-
 pro TsliderValue, event
     compile_opt idl2, hidden
 
+    ; don't do anything if entering the text field 
+    if (TAG_NAMES(event, /STRUCT) eq 'WIDGET_KBRD_FOCUS') $
+        && (event.enter eq 1) then $
+        return
+
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    state.ti = slider_value_change(state.wSlider[0], state.t, state.ts)
-    contour_redraw, state
+    state.ti = slider_value_index(state.wSlider[0], state.t, state.ts)
+    mainplot_redraw, state
     xcut_redraw, state
     ycut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the x-cut selection slider.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Slider event structure
+;-
 pro Xslider, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    state.yi = slider_change(state.wSlider[1], state.y, state.ys)
-    contour_redraw, state
+    state.yi = slider_index(state.wSlider[1], state.y, state.ys)
+    mainplot_redraw, state
     xcut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the x-cut selection text field.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Field event structure
+;-
 pro XsliderValue, event
     compile_opt idl2, hidden
 
+    ; don't do anything if entering the text field 
+    if (TAG_NAMES(event, /STRUCT) eq 'WIDGET_KBRD_FOCUS') $
+        && (event.enter eq 1) then $
+        return
+
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    state.yi = slider_value_change(state.wSlider[1], state.y, state.ys)
-    contour_redraw, state
+    state.yi = slider_value_index(state.wSlider[1], state.y, state.ys)
+    mainplot_redraw, state
     xcut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the y-cut selection slider.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Slider event structure
+;-
 pro Yslider, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    state.xi = slider_change(state.wSlider[2], state.x, state.xs)
-    contour_redraw, state
+    state.xi = slider_index(state.wSlider[2], state.x, state.xs)
+    mainplot_redraw, state
     ycut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the y-cut selection text field.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Field event structure
+;-
 pro YsliderValue, event
     compile_opt idl2, hidden
 
+    ; don't do anything if entering the text field 
+    if (TAG_NAMES(event, /STRUCT) eq 'WIDGET_KBRD_FOCUS') $
+        && (event.enter eq 1) then $
+        return
+
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    state.xi = slider_value_change(state.wSlider[2], state.x, state.xs)
-    contour_redraw, state
+    state.xi = slider_value_index(state.wSlider[2], state.x, state.xs)
+    mainplot_redraw, state
     ycut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
-function slider_change, slider, q, qs
+;+
+; Returns the index in the axis coordinate array corresponding to the current
+; slider position. Also updates the slider's text field with the current 
+; coordinate. 
+;
+; :Returns: integer
+;
+; :Params:
+;    slider: in, required, type=struct
+;       structure with widget info for the slider and its text field
+;    q: in, required, type=fltarr()
+;       array of axis coordinates 
+;    qs: in, required, type=intarr()
+;       result of sort(q)
+;-
+function slider_index, slider, q, qs
     compile_opt idl2, hidden
 
     widget_control, slider.id, get_value=q_index
     qi = qs[q_index]
     value = string(q[qi], format='(g0.5)')
+    ; update the text field with the new value
     widget_control, slider.value_id, set_value=value
     return, qi
 end
 
 ;------------------------------------------------------------------------------
-
-function slider_value_change, slider, q, qs
+;+
+; Returns the index in the axis coordinate array corresponding to the current
+; value of the slider text field.  Also moves the slider to match this index.
+;
+; :Returns: integer
+;
+; :Params:
+;    slider: in, required, type=struct
+;       structure with widget info for the slider and its text field
+;    q: in, required, type=fltarr()
+;       array of axis coordinates 
+;    qs: in, required, type=intarr()
+;       result of sort(q)
+;-
+function slider_value_index, slider, q, qs
     compile_opt idl2, hidden
 
     widget_control, slider.value_id, get_value=q_value
+    ; update the slider text field with the value nearest to the entered value
     qi = qs[index(q, float(q_value))]
     widget_control, slider.id, set_value=qi
-    ; update the box with the closest value
     value = string(q[qi], format='(g0.5)')
     widget_control, slider.value_id, set_value=value
     return, qi
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Change the minimum and maximum labels for a slider.
+;
+; :Params:
+;    slider: in, required, type=struct
+;       structure with widget info for the slider and its text field
+;    q: in, required, type=fltarr()
+;       array of axis coordinates 
+;-
 pro change_slider_range, slider, q
     compile_opt idl2, hidden
 
@@ -433,12 +575,19 @@ pro change_slider_range, slider, q
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the XLOG/YLOG toggles for the cut plots.
+;
+; :Params:
+;    event: in, required, type=struct
+;       button event structure
+;-
 pro CutLogButtons, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
     name = widget_info(event.id, /uname)
+    ; strcmp returns 0 for 'XCUT', 1 for 'YCUT'
     cut = strcmp(name, 'YCUT', 4)
     dir = strcmp(strmid(name, 4, 4), 'YLOG')
     state.cut_axes[cut, dir].log = event.select
@@ -452,10 +601,17 @@ pro CutLogButtons, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the xrange/yrange fields for the cut plots.
+;
+; :Params:
+;    event: in, required, type=struct
+;       text field event structure
+;-
 pro CutRanges, event
     compile_opt idl2, hidden
 
+    ; don't do anything if entering the text field 
     if (TAG_NAMES(event, /STRUCT) eq 'WIDGET_KBRD_FOCUS') $
         && (event.enter eq 1) then $
         return
@@ -465,6 +621,7 @@ pro CutRanges, event
     widget_control, event.id, get_value=value
     value = float(value)
     widget_control, event.id, set_value=string(value, format='(g0.5)')
+    ; strcmp returns 0 for 'XCUT', 1 for 'YCUT'
     cut = strcmp(name, 'YCUT', 4)
     dir = strcmp(strmid(name, 4, 1), 'Y')
     changed = 0
@@ -488,26 +645,88 @@ pro CutRanges, event
 end
 
 ;------------------------------------------------------------------------------
+;+
+; Handle mouse events in the main plot area.  At present, this only handles 
+; rotating the surface plots.
+;
+; :Params:
+;    event : in, required, type=struct
+;       Mouse event structure
+;-
+pro MainPlotMouseEvent, event
+    compile_opt idl2, hidden
 
-pro ContourLogButtons, event
+    widget_control, event.top, GET_UVALUE=state, /no_copy
+
+    if (state.mainplot_type eq 1) || (state.mainplot_type eq 2) then begin
+        widget_control, state.wMainPlot, get_value=win
+        plot_state = current_plot_state()
+        wset, win
+        xsize = !d.x_size
+        ysize = !d.y_size
+        restore_plot_state, plot_state
+        
+        if state.rotation.rotating then begin
+            x = 2.*event.x/xsize - 1
+            y = 2.*event.y/ysize - 1 
+            state.rotation.xangle += -atan(y - state.rotation.y0) * 180. / !pi
+            state.rotation.zangle += atan(x - state.rotation.x0) * 180. / !pi 
+            state.rotation.zangle = state.rotation.zangle mod 360.
+            ; Keep the data z-axis in the positive device y-axis so that 
+            ; left-right mouse motions don't become completely non-intuitive. 
+            state.rotation.xangle = (state.rotation.xangle < 90.) > (-90.)
+            mainplot_redraw, state
+            state.rotation.x0 = x
+            state.rotation.y0 = y
+        endif
+    
+        if event.press then begin
+            state.rotation.rotating = 1
+            state.rotation.x0 = 2.*event.x/xsize - 1
+            state.rotation.y0 = 2.*event.y/ysize - 1
+        endif
+    
+        if event.release then begin
+            state.rotation.rotating = 0
+        endif 
+    endif
+    widget_control, event.top, SET_UVALUE=state, /no_copy
+end
+
+;------------------------------------------------------------------------------
+;+
+; Handle events from the XLOG/YLOG/ZLOG toggles for the main plot.
+;
+; :Params:
+;    event: in, required, type=struct
+;       button event structure
+;-
+pro MainPlotLogButtons, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
     name = widget_info(event.id, /uname)
     case strmid(name, 7, 4) of
-        'XLOG' : state.contour_axes[0].log = event.select
-        'YLOG' : state.contour_axes[1].log = event.select
-        'ZLOG' : state.contour_axes[2].log = event.select
+        'XLOG' : state.mainplot_axes[0].log = event.select
+        'YLOG' : state.mainplot_axes[1].log = event.select
+        'ZLOG' : state.mainplot_axes[2].log = event.select
     endcase
-    contour_redraw, state
+    mainplot_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
-pro ContourRanges, event
+;+
+; Handle events from the [xyz]range fields for the main plot.
+;
+; :Params:
+;    event: in, required, type=struct
+;       text field event structure
+;-
+pro MainPlotRanges, event
     compile_opt idl2, hidden
 
+    ; don't do anything if entering the text field 
     if (TAG_NAMES(event, /STRUCT) eq 'WIDGET_KBRD_FOCUS') $
         && (event.enter eq 1) then $
         return
@@ -525,27 +744,30 @@ pro ContourRanges, event
     endcase
     changed = 0
     case strmid(name, 8, 3) of 
-        'MIN': if state.contour_axes[dir].min ne value then begin
+        'MIN': if state.mainplot_axes[dir].min ne value then begin
                    changed = 1 
-                   state.contour_axes[dir].min = value
+                   state.mainplot_axes[dir].min = value
                endif            
-        'MAX': if state.contour_axes[dir].max ne value then begin
+        'MAX': if state.mainplot_axes[dir].max ne value then begin
                    changed = 1 
-                   state.contour_axes[dir].max = value
+                   state.mainplot_axes[dir].max = value
                endif
     endcase
     if changed then begin
+        ; if necessary, re-decimate the data based on the new [xy]ranges
         max_dim = 200
         nx = (size(*state.data, /dimensions))[1]
         ny = (size(*state.data, /dimensions))[2]
         if (nx gt max_dim) || (ny gt max_dim) then begin
             nt = (size(*state.data, /dimensions))[0]
-            xirange = index(state.x, [state.contour_axes[0].min, $
-                state.contour_axes[0].max])
-            yirange = index(state.y, [state.contour_axes[1].min, $
-                state.contour_axes[1].max])
+            ; find the indices for the min and max coordinate values
+            xirange = index(state.x, [state.mainplot_axes[0].min, $
+                state.mainplot_axes[0].max])
+            yirange = index(state.y, [state.mainplot_axes[1].min, $
+                state.mainplot_axes[1].max])
             xirange = xirange[sort(xirange)]
             yirange = yirange[sort(yirange)]
+            ; need at least 2 points else the dimension will be reformed away
             nx = (xirange[1] - xirange[0] + 1) > 2 
             ny = (yirange[1] - yirange[0] + 1) > 2 
             state.reduced = 1
@@ -577,13 +799,19 @@ pro ContourRanges, event
         endif else begin
             state.reduced = 0
         endelse
-        contour_redraw, state
+        mainplot_redraw, state
     endif
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the animation "dt" text field.
+;
+; :Params:
+;    event: in, required, type=struct
+;       text field event structure
+;-
 pro dtValue, event
     compile_opt idl2, hidden
     widget_control, event.top, GET_UVALUE=state, /no_copy
@@ -594,7 +822,13 @@ pro dtValue, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Start and stop animation.
+;
+; :Params:
+;    event: in, required, type=struct
+;       button event structure
+;-
 pro PlayButton, event
     compile_opt idl2, hidden
 
@@ -611,74 +845,102 @@ pro PlayButton, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Set/unset the "isotropic" flag for the main plot window.
+;
+; :Params:
+;    event: in, required, type=struct
+;       button event structure
+;-
 pro ISOButton, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
     state.iso = event.select
-    contour_redraw, state
+    mainplot_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
  
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the dimension order droplists.  The dataset is not actually
+; changed until DimSetButton is clicked.
+;
+; :Params:
+;    event: in, required, type=struct
+;       droplist event structure
+;-
 pro DimList, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
-    changed = where(state.wDims eq event.id)
-    q = [0, 1, 2]
+    selected_dims = intarr(3)
+    ; loop through each droplist to find the one that has the same value as the
+    ; one that was just changed.
     for i = 0, 2 do begin
         p = widget_info(state.wDims[i], /droplist_select)
-        q[p] = -1
+        selected_dims[p] = 1
+        ; if this droplist has the same value as the one that just changed, and
+        ; it is not the droplist that just changed, then it is the duplicate.
         if (p eq event.index) && (state.wDims[i] ne event.id) then $
             duplicate = state.wDims[i]
     endfor
+    ; switch the duplicate to the selected droplist's old value.
     if n_elements(duplicate) ne 0 then $
-        widget_control, duplicate, set_droplist_select=where(q ne -1)
+        widget_control, duplicate, set_droplist_select=where(selected_dims eq 0)
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the dimension droplist for 4D datasets.  It selects which
+; vector direction (x, y, or vector magnitude) is used for contour/surface
+; plots and cuts.  The axis ranges for the plots are reset to min and max of
+; the selected direction as appropriate.
+;
+; :Params:
+;    event: in, required, type=struct
+;       droplist event structure
+;-
 pro DimList4D, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
     if event.index ne state.zi then begin
         state.zi = event.index
+        ; reset the zranges to something appropriate for the new selection
         if state.zi eq 0 then begin
-            state.contour_axes[2].min = 0.
-            state.contour_axes[2].max = state.ref_mag
+            state.mainplot_axes[2].min = 0.
+            state.mainplot_axes[2].max = state.ref_mag
             state.cut_axes[*, 1].min = 0.
             state.cut_axes[*, 1].max = state.ref_mag
         endif else begin
-            if state.contour_type ne 3 then begin
-                state.contour_axes[2].min = state.zmin
-                state.contour_axes[2].max = state.zmax
+            ; only change the zrange if the main plot is not velovect
+            if state.mainplot_type ne 3 then begin
+                state.mainplot_axes[2].min = state.zmin
+                state.mainplot_axes[2].max = state.zmax
             endif
             state.cut_axes[*, 1].min = state.zmin
             state.cut_axes[*, 1].max = state.zmax
         endelse
-        widget = widget_info(state.wContourRanges, find_by_uname='CONTOURZMIN')
-        widget_control, widget, set_value=string(state.contour_axes[2].min, $
+        widget = widget_info(state.wMainPlotRanges, find_by_uname='CONTOURZMIN')
+        widget_control, widget, set_value=string(state.mainplot_axes[2].min, $
             format='(g0.3)')
-        widget = widget_info(state.wContourRanges, find_by_uname='CONTOURZMAX')
-        widget_control, widget, set_value=string(state.contour_axes[2].max, $
+        widget = widget_info(state.wMainPlotRanges, find_by_uname='CONTOURZMAX')
+        widget_control, widget, set_value=string(state.mainplot_axes[2].max, $
             format='(g0.3)')
         uname = [ 'XCUT', 'YCUT' ]
         for cut = 0, n_elements(uname) - 1 do begin
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+'YMIN')
             widget_control, widget, set_value=string( $
-                state.cut_axes[cut, 1].min, format='(g0.2)') 
+                state.cut_axes[cut, 1].min, format='(g0.5)') 
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+'YMAX')
             widget_control, widget, set_value=string($ 
-                state.cut_axes[cut, 1].max, format='(g0.2)') 
+                state.cut_axes[cut, 1].max, format='(g0.5)') 
         endfor
-        contour_redraw, state
+        mainplot_redraw, state
         xcut_redraw, state
         ycut_redraw, state
     endif
@@ -686,7 +948,14 @@ pro DimList4D, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the 'Set Dims' button.  Reinitializes the state structure 
+; with the new dimension permutation.
+;
+; :Params:
+;    event: in, required, type=struct
+;       button event structure
+;-
 pro DimSetButton, event
     compile_opt idl2, hidden
     
@@ -697,13 +966,14 @@ pro DimSetButton, event
         p[i] = widget_info(state.wDims[i], /droplist_select)
     endfor
 
+    ; make sure the selected permutation is valid, and then update the state.
     if array_equal(uniq(p), [0,1,2]) then begin
         newstate = init_state(*state.data, state.t, state.x, state.y, $
-            state.labels, p=p, old_p=state.p) 
-        newstate.wContour = state.wContour
-        newstate.wContourType = state.wContourType
-        newstate.wContourToggles = state.wContourToggles
-        newstate.wContourRanges = state.wContourRanges
+            state.titles, p=p, old_p=state.p) 
+        newstate.wMainPlot = state.wMainPlot
+        newstate.wMainPlotType = state.wMainPlotType
+        newstate.wMainPlotToggles = state.wMainPlotToggles
+        newstate.wMainPlotRanges = state.wMainPlotRanges
         newstate.wDims = state.wDims
         newstate.wXcut = state.wXCut
         newstate.wYcut = state.wYCut
@@ -719,52 +989,78 @@ pro DimSetButton, event
 end
 
 ;------------------------------------------------------------------------------
-
-pro ContourTypeList, event
+;+
+; Handle events from the droplist that selects the type (contour, surface, etc.)
+; of plot for the main plot.
+;
+; :Params:
+;    event: in, required, type=struct
+;       droplist event structure
+;-
+pro MainPlotTypeList, event
     compile_opt idl2, hidden
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
 
-    if state.zi ne 0 then begin
-        if (event.index eq 3) && (state.contour_type ne 3) then begin
-            state.contour_axes[2].min = 0 
-            state.contour_axes[2].max = state.ref_mag
-            state.cut_axes[*, 1].min = 0.
-            state.cut_axes[*, 1].max = state.ref_mag
-        endif else if (event.index ne 3) && (state.contour_type eq 3) then begin
-            state.contour_axes[2].min = state.zmin 
-            state.contour_axes[2].max = state.zmax
-            state.cut_axes[*, 1].min = state.zmin
-            state.cut_axes[*, 1].max = state.zmax
+    if state.mainplot_type ne event.index then begin
+        changed = 0
+        if state.zi ne 0 then begin
+            ; change zranges to vector magnitude if going to velovect
+            if (event.index eq 3) then begin
+                changed = 1
+                state.mainplot_axes[2].min = 0 
+                state.mainplot_axes[2].max = state.ref_mag
+                state.cut_axes[*, 1].min = 0.
+                state.cut_axes[*, 1].max = state.ref_mag
+            ; change zranges to zmin/zmax if coming from velovect
+            endif else if (state.mainplot_type eq 3) then begin
+                changed = 1
+                state.mainplot_axes[2].min = state.zmin 
+                state.mainplot_axes[2].max = state.zmax
+                state.cut_axes[*, 1].min = state.zmin
+                state.cut_axes[*, 1].max = state.zmax
+            endif
         endif
-    endif
-    state.contour_type = event.index
+    
+        ; update any xyzrange text fields if there were changes
+        if changed then begin 
+            widget = widget_info(state.wMainPlotRanges, $
+                find_by_uname='CONTOURZMIN')
+            widget_control, widget, set_value=string( $
+                state.mainplot_axes[2].min, format='(g0.3)')
+            widget = widget_info(state.wMainPlotRanges, $
+                find_by_uname='CONTOURZMAX')
+            widget_control, widget, set_value=string( $
+                state.mainplot_axes[2].max, format='(g0.3)')
+            uname = [ 'XCUT', 'YCUT' ]
+            for cut = 0, n_elements(uname) - 1 do begin
+                widget = widget_info(state.wCutRanges[cut], $
+                    find_by_uname=uname[cut]+'YMIN')
+                widget_control, widget, set_value=string( $
+                    state.cut_axes[cut, 1].min, format='(g0.2)') 
+                widget = widget_info(state.wCutRanges[cut], $
+                    find_by_uname=uname[cut]+'YMAX')
+                widget_control, widget, set_value=string( $
+                    state.cut_axes[cut, 1].max, format='(g0.2)') 
+            endfor
+        endif
 
-    widget = widget_info(state.wContourRanges, find_by_uname='CONTOURZMIN')
-    widget_control, widget, set_value=string(state.contour_axes[2].min, $
-        format='(g0.3)')
-    widget = widget_info(state.wContourRanges, find_by_uname='CONTOURZMAX')
-    widget_control, widget, set_value=string(state.contour_axes[2].max, $
-        format='(g0.3)')
-    uname = [ 'XCUT', 'YCUT' ]
-    for cut = 0, n_elements(uname) - 1 do begin
-        widget = widget_info(state.wCutRanges[cut], $
-            find_by_uname=uname[cut]+'YMIN')
-        widget_control, widget, set_value=string( $
-                                state.cut_axes[cut, 1].min, format='(g0.2)') 
-        widget = widget_info(state.wCutRanges[cut], $
-            find_by_uname=uname[cut]+'YMAX')
-        widget_control, widget, set_value=string( $
-                                state.cut_axes[cut, 1].max, format='(g0.2)') 
-    endfor
-    contour_redraw, state
-    xcut_redraw, state
-    ycut_redraw, state
+        state.mainplot_type = event.index
+        mainplot_redraw, state
+        xcut_redraw, state
+        ycut_redraw, state
+    endif
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the 'Export to variable' form.  See VARButton below.
+;
+; :Params:
+;   event: in, required, type=struct
+;       form event structure
+;-
 pro VAR_event, event
     compile_opt idl2, hidden
 
@@ -796,7 +1092,7 @@ pro VAR_event, event
                 endelse
                 (scope_varfetch(form.varname, /enter, level=1)) = s
             endif else begin
-                if state.contour_type eq 3 then begin
+                if state.mainplot_type eq 3 then begin
                      slice = reform((*state.data)[state.ti, *, *, *])
                 endif else begin
                     if state.zi eq 0 then begin
@@ -821,7 +1117,14 @@ pro VAR_event, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the 'Export to variable' button. The actual export is 
+; performed by VAR_event.
+;
+; :Params:
+;   event: in, required, type=struct
+;       button event structure
+;-
 pro VARButton, event
     compile_opt idl2, hidden
 
@@ -840,7 +1143,13 @@ pro VARButton, event
 end
    
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the 'Export to PNG' button. 
+;
+; :Params:
+;   event: in, required, type=struct
+;       button event structure
+;-
 pro PNGButton, event
     compile_opt idl2, hidden
 
@@ -849,7 +1158,7 @@ pro PNGButton, event
         dialog_parent=event.top)
     if filename ne '' then begin
         scale = 2.0
-        geometry = widget_info(state.wContour, /geometry)
+        geometry = widget_info(state.wMainPlot, /geometry)
         png_xsize = geometry.draw_xsize*scale
         png_ysize = geometry.draw_ysize*scale
         geometry = widget_info(state.wXCut, /geometry)
@@ -861,7 +1170,7 @@ pro PNGButton, event
  
         basename = file_basename(filename, '.png', /fold_case) 
         window, /free, xsize=png_xsize, ysize=png_ysize, /pixmap
-        case widget_info(state.wContourType, /droplist_select) of
+        case widget_info(state.wMainPlotType, /droplist_select) of
             0: contour_plot, state, scale, /no_z_buffer
             1: surface_plot, state, scale, /no_z_buffer
             2: shadesurf_plot, state, scale, /no_z_buffer
@@ -882,18 +1191,30 @@ pro PNGButton, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Redraws the plots after a color table update from xloadct.
+;
+; :Keywords:
+;    data: in, required, type=struct
+;       color table event structure
+;-
 pro CTBUpdate, data=event
     compile_opt idl2, hidden
     widget_control, event.top, get_UVALUE=state, /no_copy
-    contour_redraw, state
+    mainplot_redraw, state
     xcut_redraw, state
     ycut_redraw, state
     widget_control, event.top, SET_UVALUE=state, /no_copy
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the 'Color Table' button. 
+;
+; :Params:
+;   event: in, required, type=struct
+;       button event structure
+;-
 pro CTBButton, event
     compile_opt idl2, hidden
 
@@ -902,7 +1223,12 @@ pro CTBButton, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Handle events from the 'Reset View' button.
+;
+; :Params:
+;    event: in, required, type=struct
+;       button event structure
 pro ResetButton, event
     compile_opt idl2, hidden
 
@@ -915,15 +1241,14 @@ pro ResetButton, event
 end
 
 ;------------------------------------------------------------------------------
-
-pro ExitButton, event
-    compile_opt idl2, hidden
-
-    widget_control, event.top, /destroy
-end
-
-;------------------------------------------------------------------------------
-
+;+
+; Handle events from the top level base.  Currently handles the animation timer
+; and resize events.
+;
+; :Params:
+;   event: in, required, type=struct
+;       event structure
+;-
 pro Browse_event, event
     compile_opt idl2, hidden
 
@@ -950,8 +1275,8 @@ pro Browse_event, event
             ; Apparently this is a bad idea in Windows.  See IDL help.
             widget_control, event.top, update=0
             sizes = browse_widget_sizes(event.x > 999, event.y > 600)
-            widget_control, state.wContour, draw_xsize=sizes.contour_x, $
-                draw_ysize=sizes.contour_y
+            widget_control, state.wMainPlot, draw_xsize=sizes.mainplot_x, $
+                draw_ysize=sizes.mainplot_y
             widget_control, state.wXCut, draw_xsize=sizes.cut_x, $
                 draw_ysize=sizes.cut_y
             widget_control, state.wYCut, draw_xsize=sizes.cut_x, $
@@ -962,18 +1287,20 @@ pro Browse_event, event
             uname = ['CONTOUR' + [ 'X', 'Y', 'Z' ] + 'MIN', $
                      'CONTOUR' + [ 'X', 'Y', 'Z' ] + 'MAX']
             for i = 0, n_elements(uname) - 1 do begin
-                widget = widget_info(state.wContourRanges, find_by_uname=uname[i])
-                widget_control, widget, xsize=sizes.contour_range
+                widget = widget_info(state.wMainPlotRanges, $
+                    find_by_uname=uname[i])
+                widget_control, widget, xsize=sizes.mainplot_range
             endfor
         
             uname = [ 'XCUT' + [ 'XMIN', 'XMAX', 'YMIN', 'YMAX' ], $
                       'YCUT' + [ 'XMIN', 'XMAX', 'YMIN', 'YMAX' ]]
             for i = 0, n_elements(uname) - 1 do begin
-                widget = widget_info(state.wCutRanges[i/4], find_by_uname=uname[i])
+                widget = widget_info(state.wCutRanges[i/4], $
+                    find_by_uname=uname[i])
                 widget_control, widget, xsize=sizes.cut_range
             endfor
             widget_control, event.top, update=1, /clear_events
-            contour_redraw, state
+            mainplot_redraw, state
             xcut_redraw, state
             ycut_redraw, state
             widget_control, event.top, SET_UVALUE=state, /no_copy
@@ -983,7 +1310,13 @@ pro Browse_event, event
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Clean up procedure.
+;
+; :Params:
+;    wBase: in, required, type=integer
+;       widget id of the top level base.
+;-
 pro BrowseCleanup, wBase
     compile_opt idl2, hidden
 
@@ -995,15 +1328,27 @@ pro BrowseCleanup, wBase
 end
 
 ;------------------------------------------------------------------------------
-
-function save_plot_state
+;+
+; Returns the current plot state. Used to save the plot state so that plot 
+; windows created by the user won't be affected.
+;   
+;  :Returns: plot state structure
+;-
+function current_plot_state
     compile_opt idl2, hidden
 
     return, { p: !p, x: !x, y: !y, z: !z, w: !d.window }
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Resets the plot parameters to those given in plot_state.  See
+; current_plot_state for more details.
+;
+; :Params:
+;   plot_state: in, required, type=struct
+;      plot state structure
+;-
 pro restore_plot_state, plot_state
     compile_opt idl2, hidden
 
@@ -1016,15 +1361,39 @@ pro restore_plot_state, plot_state
 end
 
 ;------------------------------------------------------------------------------
-
-function init_state, data, t_in, x_in, y_in, labels, p=p, old_p=old_p
+;+
+; Initializes the state structure for the application. 
+;
+; :Params:
+;   data: in, required, type=fltarr
+;       dataset to browse
+;   t_in: in, required, type=fltarr
+;       t-axis coordinates
+;   x_in: in, required, type=fltarr
+;       x-axis coordinates
+;   y_in: in, required, type=fltarr
+;       y-axis coordinates
+;   titles: in, required, type=strarr
+;       axis titles
+;   
+; :Keywords:
+;   p: in, optional, type=intarr(3)
+;       dimension permutation to apply to the dataset; relative to the order
+;       when the application was first started.
+;   old_p: in, optional, type=intarr(3)
+;       the current dimension permutation of the dataset, as compared to its
+;       state when the application was first started.
+;-
+function init_state, data, t_in, x_in, y_in, titles, p=p, old_p=old_p
     compile_opt idl2, hidden
 
     if n_elements(old_p) eq 0 then old_p = [ 0, 1, 2 ]
     if n_elements(p) ne 0 then begin
+        ; find the permutation relative to the current state of the dataset
         p2 = (sort(old_p))[p]
         data = transpose(temporary(data), p2)
-        labels = labels[[p2, 3]]
+        ; reorder only t,x, and y titles
+        titles = titles[[p2, 3]]
         case p2[0] of 
             0: t = t_in
             1: t = x_in
@@ -1052,6 +1421,8 @@ function init_state, data, t_in, x_in, y_in, labels, p=p, old_p=old_p
     nt = n_elements(t)
     nx = n_elements(x)
     ny = n_elements(y)
+
+    ; calculate vector lengths if 4D dataset
     max_mag = 0
     mag = 0 
     zi = 1
@@ -1067,6 +1438,7 @@ function init_state, data, t_in, x_in, y_in, labels, p=p, old_p=old_p
     endif
     ref_mag = max(max_mag)
 
+    ; create a decimated dataset if nx or ny is large
     max_dim = 200
     if (nx gt max_dim) || (ny gt max_dim) then begin
         reduced = 1
@@ -1099,57 +1471,87 @@ function init_state, data, t_in, x_in, y_in, labels, p=p, old_p=old_p
     mag_red = ptr_new(mag_red, /no_copy)
     x_red = ptr_new(x_red, /no_copy)
     y_red = ptr_new(y_red, /no_copy)
-    contour_axes = replicate({ log: 0, min: 0.0, max: 0.0 }, 3)
-    cut_axes = replicate({ log: 0, min: 0.0, max: 0.0 }, 2, 2)
+
+    ; plot parameter structure
+    axis_structure = { $
+        log: 0, $               ; true if axis is log, false if axis is linear
+        min: 0.0, max: 0.0 $    ; axis range
+    }
+    ; x,y,z axes for main plot
+    mainplot_axes = replicate(axis_structure, 3)
+    ; x, y axes for each cut plot.  first dimension selects the cut, second
+    ; selects the axis.
+    cut_axes = replicate(axis_structure, 2, 2)
+
+    ; id is the slider id, value_id is the associated text field id,
+    ; min/max_id are the widget_label ids that show min/max for the slider
     wSlider = replicate({ id: 0L, value_id: 0L, min_id: 0L, max_id: 0L }, 3)
+
+    ; set dt such that playing the entire dataset takes approx 120 seconds.
     dt = nt / 120 > 1
+
+    ; default surface plot view
+    rotation = { xangle: 30., zangle: 30., rotating: 0, x0: 0.0, y0: 0.0 }
+
     state = {  $
-        wContour: 0L, $
-        wContourType: 0L, $
-        wContourToggles: 0L, $
-        wContourRanges: 0L, $
-        wDims: lonarr(3), $
-        wXcut: 0L, $
-        wYcut: 0L, $
-        wCutToggles: lonarr(2), $
-        wCutRanges: lonarr(2), $
-        wSlider: wSlider, $
-        labels: labels, $
-        contour_type: 0, $
-        zmin: min(*data), zmax: max(*data), $
-        data: data, $
-        mag: mag, $
-        mag_red: mag_red, $
-        x: x, y: y, t: t, $ 
-        xs: xs, ys: ys, ts: ts, $
-        xi: 0, yi: 0, ti: 0, zi: zi, $
-        p: p, $
-        ref_mag: ref_mag, $   
-        max_mag: max_mag, $
-        reduced: reduced, $
-        data_red: data_red, $
-        x_red: x_red, y_red: y_red, $
-        cut_axes: cut_axes, $
-        contour_axes: contour_axes, $
-        iso: 0, $
-        animating: 0, $
-        dt: dt $
+        wMainPlot: 0L, $                       ; main plot id
+        wMainPlotType: 0L, $                   ; main plot type list id
+        wMainPlotToggles: 0L, $                ; main plot toggles base id
+        wMainPlotRanges: 0L, $                 ; main plot ranges base id
+        wDims: lonarr(3), $                    ; dim. selector droplist ids
+        wXcut: 0L, $                           ; xcut draw widget id
+        wYcut: 0L, $                           ; ycut draw widget id
+        wCutToggles: lonarr(2), $              ; x/y cut toggles base ids
+        wCutRanges: lonarr(2), $               ; x/y cut ranges base ids
+        wSlider: wSlider, $                    ; slider id structures
+        titles: titles, $                      ; strarr of axis titles
+        mainplot_type: 0, $                    ; type of main plot
+        zmin: min(*data), zmax: max(*data), $  ; min/max of dataset
+        data: data, $                          ; ptr to dataset
+        mag: mag, $                            ; ptr to vector magnitudes
+        mag_red: mag_red, $                    ; ptr to reduced dataset
+        x: x, y: y, t: t, $                    ; axis coordinates
+        xs: xs, ys: ys, ts: ts, $              ; sort(t/x/y)
+        xi: 0, yi: 0, ti: 0, zi: zi, $         ; current index in each dim.
+        p: p, $                                ; current dimension permutation
+        max_mag: max_mag, $                    ; max vector mag at each timestep
+        ref_mag: ref_mag, $                    ; max(max_mag)
+        reduced: reduced, $                    ; use reduced dataset flag
+        data_red: data_red, $                  ; ptr to reduced dataset
+        x_red: x_red, y_red: y_red, $          ; axis coords for reduced dataset
+        cut_axes: cut_axes, $                  ; plot params for cuts
+        mainplot_axes: mainplot_axes, $        ; plot params for main plot
+        iso: 0, $                              ; isotropic flag
+        animating: 0, $                        ; animation on/off flag
+        dt: dt, $                              ; dt between animation frames
+        rotation: rotation $                   ; surface plot rotation state
     }
     return, state
 end
 
 ;------------------------------------------------------------------------------
-
+;+ 
+; Resets the plot parameters, sliders, rotation state, etc. back to their
+; defaults.  Does not change the main plot type or the dimension order.
+;
+; :Params:
+;   state: in, required, type=struct
+;       application state structure
+;
+; :Keywords:
+;   no_redraw: in, optional, type=boolean
+;       if set, do not redraw the plots
+;-
 pro reset_view, state, no_redraw=no_redraw
     compile_opt idl2, hidden
 
-    state.contour_axes.log = intarr(3)
-    state.contour_axes.min = [ min(state.x), min(state.y), state.zmin ]
-    state.contour_axes.max = [ max(state.x), max(state.y), state.zmax ]
+    state.mainplot_axes.log = intarr(3)
+    state.mainplot_axes.min = [ min(state.x), min(state.y), state.zmin ]
+    state.mainplot_axes.max = [ max(state.x), max(state.y), state.zmax ]
 
-    rot_state = { xangle: 30., zangle: 30., rotating: 0, x0: 0.0, y0: 0.0 }
-    widget_control, state.wContour, set_uvalue=rot_state
+    state.rotation = { xangle: 30., zangle: 30., rotating: 0, x0: 0.0, y0: 0.0 }
 
+    ; set axes to linear, ranges to min/max of the dataset.
     state.cut_axes.log = intarr(2,2)
     state.cut_axes.min = [ [ min(state.x), min(state.y) ], $
         [ state.zmin, state.zmin ] ]
@@ -1159,17 +1561,18 @@ pro reset_view, state, no_redraw=no_redraw
     state.xi = state.xs[0]
     state.yi = state.ys[0]
     state.ti = state.ts[0]
-    state.contour_type = widget_info(state.wContourType, /droplist_select)
+    state.mainplot_type = widget_info(state.wMainPlotType, /droplist_select)
 
     ; By default, scale the z-axis according to the vector magnitude if we have
     ; a velovect plot or 'MAG' is selected.
-    if (state.contour_type eq 3) || (state.zi eq 0) then begin
-        state.contour_axes[2].min = 0.
-        state.contour_axes[2].max = state.ref_mag
+    if (state.mainplot_type eq 3) || (state.zi eq 0) then begin
+        state.mainplot_axes[2].min = 0.
+        state.mainplot_axes[2].max = state.ref_mag
         state.cut_axes[*, 1].min = 0.
         state.cut_axes[*, 1].max = state.ref_mag
     endif
 
+    ; update the text fields
     uname = ['XCUT', 'YCUT' ]
     xlog_enabled = [ min(state.x), min(state.y) ] ge 0.
     ylog_enabled = state.zmin ge 0.
@@ -1185,22 +1588,22 @@ pro reset_view, state, no_redraw=no_redraw
     uname = ['CONTOURXLOG', 'CONTOURYLOG', 'CONTOURZLOG', 'ISO' ]
     log_enabled = [ min(state.x), min(state.y), state.zmin, 1. ] ge 0.
     for i = 0, n_elements(uname) - 1 do begin
-        widget = widget_info(state.wContourToggles, find_by_uname=uname[i])
+        widget = widget_info(state.wMainPlotToggles, find_by_uname=uname[i])
         widget_control, widget, set_button=0, sensitive=log_enabled[i]
     endfor
 
     uname = 'CONTOUR' + [ 'X', 'Y', 'Z' ] + 'MIN'
     for i = 0, n_elements(uname) - 1 do begin
-        widget = widget_info(state.wContourRanges, find_by_uname=uname[i])
-        widget_control, widget, set_value=string(state.contour_axes[i].min, $
-            format='(g0.3)')
+        widget = widget_info(state.wMainPlotRanges, find_by_uname=uname[i])
+        widget_control, widget, set_value=string(state.mainplot_axes[i].min, $
+            format='(g0.5)')
     endfor
 
     uname = 'CONTOUR' + [ 'X', 'Y', 'Z' ] + 'MAX'
     for i = 0, n_elements(uname) - 1 do begin
-        widget = widget_info(state.wContourRanges, find_by_uname=uname[i])
-        widget_control, widget, set_value=string(state.contour_axes[i].max, $
-            format='(g0.3)')
+        widget = widget_info(state.wMainPlotRanges, find_by_uname=uname[i])
+        widget_control, widget, set_value=string(state.mainplot_axes[i].max, $
+            format='(g0.5)')
     endfor
 
     uname = [ 'XCUT', 'YCUT' ]
@@ -1210,25 +1613,25 @@ pro reset_view, state, no_redraw=no_redraw
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+dir[d]+'MIN')
             widget_control, widget, set_value=string( $
-                state.cut_axes[cut, d].min, format='(g0.2)') 
+                state.cut_axes[cut, d].min, format='(g0.5)') 
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+dir[d]+'MAX')
             widget_control, widget, set_value=string( $
-                state.cut_axes[cut, d].max, format='(g0.2)') 
+                state.cut_axes[cut, d].max, format='(g0.5)') 
         endfor
     endfor
     widget_control, state.wSlider[0].id, set_value=0
     widget_control, state.wSlider[1].id, set_value=0
     widget_control, state.wSlider[2].id, set_value=0
-    state.ti = slider_change(state.wSlider[0], state.t, state.ts)
-    state.yi = slider_change(state.wSlider[1], state.y, state.ys)
-    state.xi = slider_change(state.wSlider[2], state.x, state.xs)
+    state.ti = slider_index(state.wSlider[0], state.t, state.ts)
+    state.yi = slider_index(state.wSlider[1], state.y, state.ys)
+    state.xi = slider_index(state.wSlider[2], state.x, state.xs)
     change_slider_range, state.wSlider[0], state.t
     change_slider_range, state.wSlider[1], state.y
     change_slider_range, state.wSlider[2], state.x
     scale3
     if ~keyword_set(no_redraw) then begin
-        contour_redraw, state
+        mainplot_redraw, state
         xcut_redraw, state
         ycut_redraw, state
     endif
@@ -1236,33 +1639,75 @@ pro reset_view, state, no_redraw=no_redraw
 end
 
 ;------------------------------------------------------------------------------
-
+;+
+; Calculate sizes for the draw widgets and sliders based on the window size
+;
+;  :Returns: structure of sizes
+;         
+;  :Params:
+;     x: in, optional, type=integer
+;       horizontal size of window in pixels
+;     y: in, optional, type=integer
+;       vertical size of window in pixels
+;-
 function browse_widget_sizes, x, y
+    ; default sizes. 
     if n_elements(x) eq 0 then x = 1139
     if n_elements(y) eq 0 then y = 727
 
-    contour_x = .5267*x
-    contour_y = .6878*y
+    mainplot_x = .5267*x
+    mainplot_y = .6878*y
+    ; if the window width is very small, then shrink the text fields
     if x lt 1024 then field_delta = -1 else field_delta = 0
+
     return, {browse_widget_sizes, $
-        contour_x: contour_x, $
-        contour_y: contour_y, $
+        mainplot_x: mainplot_x, $
+        mainplot_y: mainplot_y, $
         cut_x: .3687*x, $
         cut_y: .3851*y, $
-        tslider: 0.69*contour_x, $
-        xslider: 0.8*contour_y, $ 
-        yslider: 0.75*contour_x, $
+        tslider: 0.69*mainplot_x, $
+        xslider: 0.8*mainplot_y, $ 
+        yslider: 0.75*mainplot_x, $
         slider_field: 7 + field_delta, $
-        contour_range: 8 + field_delta, $
+        mainplot_range: 8 + field_delta, $
         cut_range: 7 + field_delta $
     }
 end
 
 ;------------------------------------------------------------------------------
-
-
+;+
+; Main application procedure. Parses arguments, creates the widgets and realizes
+; the application window.
+;
+;  :Params:
+;     data_in: in, required, type=fltarr or h5variable
+;     t_in: in, optional, type=fltarr  
+;        t axis coordinates
+;     x_in: in, optional, type=fltarr  
+;        x axis coordinates
+;     y_in: in, optional, type=fltarr  
+;        y axis coordinates
+;  
+;  :Keywords:
+;     ttitle: in, optional, type=string
+;       t axis title
+;     xtitle: in, optional, type=string
+;       x axis title
+;     ytitle: in, optional, type=string
+;       y axis title
+;     data_title: in, optional, type=string
+;       dataset title
+;     p: in, optional, type=intarr(3)
+;       array specifying how to permute the dataset dimensions
+;     f: in, optional, type=boolean
+;       set this flag to title the t axis as f (e.g., for FFTs)
+;     h5select: in, optional, type=boolean
+;       use the current selection on an h5variable dataset
+;     help: in, optional, type=boolean
+;       print a help message
+;-
 pro browse, data_in, t_in, x_in, y_in, $
-        ttitle=ttitle, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
+        ttitle=ttitle, xtitle=xtitle, ytitle=ytitle, data_title=ztitle, $
         p=p, f=f, h5select=h5select, help=help
 
     compile_opt idl2, hidden
@@ -1270,40 +1715,48 @@ pro browse, data_in, t_in, x_in, y_in, $
 
     if !VERSION.OS_FAMILY ne 'unix' then $
         message, 'Browse currently only supports IDL on Unix platforms' + $
-            '(including OS X).'
+            ' (including OS X).'
 
     if keyword_set(help) || (n_params() eq 0) then begin
         print
         print, 'Usage: browse, <dataset>, <t>, <x>, <y>, [ keywords ]'
-        print, '    where <dataset> is a 3D or 4D array, or an h5variable object;'
-        print, '    and <t>, <x>, and <y> are 1D arrays of axis labels.'
+        print, '    where <dataset> is a 3D or 4D array, or an h5variable ' $
+            + 'object;'
+        print, '    and <t>, <x>, and <y> are 1D arrays of coordinates for ' $
+            + 'each axis (optional).'
         print
         print, 'Keywords: '
-        print, '    [txyz]title: A string specifying the plot titles for each dimension.'
-        print, '                 Defaults are [''t'', ''x'', ''y'', ''data''].'
-        print, '    p: 3-element array specifying how to permute the dataset dimensions.'
-        print, '       For example, [2, 1, 0] swaps the first and third dimensions.'
-        print, '    /f: Set this flag to title the t axis as f (for FFTs).'
-        print, '    /h5select: Use the current selection on an h5variable dataset.'
+        print, '    [txy]title: A string specifying the plot titles for ' $
+            + 'each dimension.'
+        print, '       Default titles are [''t'', ''x'', ''y''].'
+        print, '    data_title: A string specifying the title of the dataset.'
+        print, '       Default is ''data''.'
+        print, '    p: 3-element array specifying how to permute the ' $
+            + 'dataset dimensions.'
+        print, '       For example, [2, 1, 0] swaps the first and third ' $
+            + 'dimensions.'
+        print, '    /f: Set this flag to title the t axis as f (e.g., for ' $
+            + 'FFTs).'
+        print, '    /h5select: Use the current selection on an h5variable ' $
+            + 'dataset.'
         print, '    /help: Print this message.'
         print
         return
     endif
 
-    restore_plot
+    set_plot, 'X'
     device, decomposed=0
     loadct, 39, /silent
-    t3d, /reset
-    scale3
-    plot_state = save_plot_state()
-    sizes = browse_widget_sizes()
+    plot_state = current_plot_state()
+
+    ; if possible, use the IDL variable name of the dataset as the title
     dataset_name = scope_varname(data_in, level=-1) 
     if dataset_name eq '' then dataset_name = 'data'
 
     widget_control, /hourglass
     
     if (size(data_in, /type) eq 11) && $
-                                (obj_class(data_in) eq 'H5VARIABLE') then begin
+            (obj_class(data_in) eq 'H5VARIABLE') then begin
         message, 'Restoring H5VAR dataset...', /info
         data = reform(data_in->r(select=h5select))
     endif else begin
@@ -1315,10 +1768,13 @@ pro browse, data_in, t_in, x_in, y_in, $
             data = reform(temporary(data_in))
         endelse
     endelse
+
     nonfinite = where(~finite(data), count)
     if count gt 0 then begin
         message, 'Data has non-finite elements such as NaN or Inf.'
     endif
+
+    ; create axis coordinates if needed
     dims = size(data, /dimensions)
     ndims = n_elements(dims)
     if ndims eq 2 then begin
@@ -1340,18 +1796,19 @@ pro browse, data_in, t_in, x_in, y_in, $
     endif
 
     if keyword_set(f) then $
-        labels = [ 'f', 'x', 'y', dataset_name ] $
+        titles = [ 'f', 'x', 'y', dataset_name ] $
     else $
-        labels = [ 't', 'x', 'y', dataset_name ]
+        titles = [ 't', 'x', 'y', dataset_name ]
 
-    if n_elements(ttitle) ne 0 then labels[0] = ttitle
-    if n_elements(xtitle) ne 0 then labels[1] = xtitle
-    if n_elements(ytitle) ne 0 then labels[2] = ytitle
-    if n_elements(ztitle) ne 0 then labels[3] = ztitle
+    if n_elements(ttitle) ne 0 then titles[0] = ttitle
+    if n_elements(xtitle) ne 0 then titles[1] = xtitle
+    if n_elements(ytitle) ne 0 then titles[2] = ytitle
+    if n_elements(ztitle) ne 0 then titles[3] = ztitle
     
     state = init_state(data, t_in[0:s[0]-1], x_in[0:s[1]-1], y_in[0:s[2]-1], $
-        labels, p=p)
+        titles, p=p)
 
+    sizes = browse_widget_sizes()
     nt = n_elements(state.t)
     nx = n_elements(state.x)
     ny = n_elements(state.y)
@@ -1360,21 +1817,23 @@ pro browse, data_in, t_in, x_in, y_in, $
         window_title = 'Data Browser' $
     else $
         window_title = 'Data Browser - ' + dataset_name
+
+    ; create the main widget bases
     wBase = widget_base(column=1, title=window_title,  $
         /tlb_size_events, kill_notify='BrowseCleanup')
     wToolbarBase = widget_base(wBase, /base_align_center, /align_left, /row)
     wPlotsBase = WIDGET_BASE(wBase, column=2, /BASE_ALIGN_center, /align_left)
-    wContourCol = widget_base(wPlotsBase, /column)
+    wMainPlotCol = widget_base(wPlotsBase, /column)
     wCutCol = widget_base(wPlotsBase, /column)
 
-    ; toolbar
+    ; populate the toolbar
     wAnimateBase = widget_base(wToolbarBase, /base_align_center, /row, frame=1)
     wDTLabel = widget_label(wAnimateBase, value='dt:')
     wDTValue = widget_text(wAnimateBase, xsize=5, /edit, event_pro='dtValue', $
         /kbrd_focus_events, value=string(state.dt, format='(i0)'))
     wPlayButton = widget_button(wAnimateBase, value='Play', $
         event_pro='PlayButton')
-    ; dimension selector
+    ; create the dimension selector
     case ndims of
         2: begin
            end 
@@ -1401,91 +1860,95 @@ pro browse, data_in, t_in, x_in, y_in, $
                     event_pro='DimList4D', title='DATA:')    
            end
     endcase
-
-    wContourButtonsBase = widget_base(wToolbarBase, /base_align_center, /row, $
+    ; create the plot type droplist
+    wMainPlotButtonsBase = widget_base(wToolbarBase, /base_align_center, /row, $
         frame=1)
     if ndims eq 4 then begin
-        state.wContourType = widget_droplist(wContourButtonsBase, $
+        state.wMainPlotType = widget_droplist(wMainPlotButtonsBase, $
             value=['Contour', 'Surface', 'ShadeSurface', 'Velovect'], $
-            event_pro='ContourTypeList')
-        widget_control, state.wContourType, set_droplist_select=3
-        state.contour_type = 3
+            event_pro='MainPlotTypeList')
+        widget_control, state.wMainPlotType, set_droplist_select=3
+        state.mainplot_type = 3
     endif else begin
-        state.wContourType = widget_droplist(wContourButtonsBase, $
+        state.wMainPlotType = widget_droplist(wMainPlotButtonsBase, $
             value=['Contour', 'Surface', 'ShadeSurface'], $
-            event_pro='ContourTypeList')
-        state.contour_type = 0
+            event_pro='MainPlotTypeList')
+        state.mainplot_type = 0
     endelse
-    wCTBButton = widget_button(wContourButtonsBase, value='Color Table', $
+    ; color table button
+    wCTBButton = widget_button(wMainPlotButtonsBase, value='Color Table', $
         event_pro='CTBButton')
-
+    ; export options buttons
     wExportBase = widget_base(wToolbarBase, /base_align_center, /row, frame=1)
     wExportLabel = widget_label(wExportBase, value='Export to:')
     wPNGButton = widget_button(wExportBase, value='PNG', event_pro='PNGButton')
     wVARButton = widget_button(wExportBase, value='Variable', $
         event_pro='VARButton')
-
-    wResetBase = widget_base(wToolbarBase, /row)
-    wResetButton = widget_button(wResetBase, value='Reset View', $
+    ; reset button
+    wResetButton = widget_button(wToolbarBase, value='Reset View', $
         event_pro='ResetButton')
  
-   ; T slider
-    wTsliderBase = widget_base(wContourCol, /row, /align_left, $
+    ; T slider
+    wTsliderBase = widget_base(wMainPlotCol, /row, /align_left, $
         /base_align_center)
     wTSliderLabel = widget_label(wTSliderBase, value='Slice:')
-    state.wSlider[0].value_id = widget_text(wTSliderBase, /edit, xsize=10, $
+    state.wSlider[0].value_id = widget_text(wTSliderBase, /edit, $
+        xsize=sizes.slider_field, /kbrd_focus_events, $
         event_pro='TsliderValue')
     state.wSlider[0].min_id = widget_label(wTsliderBase, value='12345678')
     if ndims eq 2 then begin
         state.wSlider[0].id = widget_slider(wTsliderBase, drag=1, max=1, $
-            sensitive=0, event_pro='tslider', xsize=sizes.tslider, /suppress_value) 
+            sensitive=0, event_pro='tslider', xsize=sizes.tslider, $
+            /suppress_value) 
         widget_control, state.wSlider[0].value_id, sensitive=0
     endif else $
         state.wSlider[0].id = widget_slider(wTsliderBase, drag=1, max=nt-1, $
             event_pro='tslider', xsize=sizes.tslider, /suppress_value)
     state.wSlider[0].max_id = widget_label(wTsliderBase, value='12345678')  
  
-    ; contour column
+    ; main plot column
     dir = ['X', 'Y', 'Z' ]
     wCutSliderBase = lonarr(2)
-    wContourBase = widget_base(wContourCol, /row, /base_align_center)
-    rot_state = { xangle: 30., zangle: 30., rotating: 0, x0: 0.0, y0: 0.0 }
-    state.wContour = WIDGET_DRAW(wContourBase, XSIZE=sizes.contour_x, $         
-        YSIZE=sizes.contour_y, /button_events, /motion_events, $
-        event_pro='ContourMouseEvent', uvalue=rot_state)
-    wCutSliderBase[0] = widget_base(wContourBase, /column, /align_top, $
+    wMainPlotBase = widget_base(wMainPlotCol, /row, /base_align_center)
+    ; main plot draw widget
+    state.wMainPlot = WIDGET_DRAW(wMainPlotBase, XSIZE=sizes.mainplot_x, $         
+        YSIZE=sizes.mainplot_y, /button_events, /motion_events, $
+        event_pro='MainPlotMouseEvent')
+    ; bases for cut sliders
+    wCutSliderBase[0] = widget_base(wMainPlotBase, /column, /align_top, $
         /base_align_center)
-    wCutSliderBase[1] = widget_base(wContourCol, /row, /align_left, $
+    wCutSliderBase[1] = widget_base(wMainPlotCol, /row, /align_left, $
         /base_align_center)
-    wContourOptions = widget_base(wContourCol, /row, /align_left, $
+    ; main plot toggles and ranges
+    wMainPlotOptions = widget_base(wMainPlotCol, /row, /align_left, $
         /base_align_center)
-    wContourToggles = widget_base(wContourOptions, /nonexclusive, $
+    wMainPlotToggles = widget_base(wMainPlotOptions, /nonexclusive, $
         row=2, /base_align_center)          
     for i = 0, 2 do begin
-        wLogButton = widget_button(wContourToggles, value=dir[i]+'LOG', $
-            uname='CONTOUR'+dir[i]+'LOG', event_pro='ContourLogButtons')
+        wLogButton = widget_button(wMainPlotToggles, value=dir[i]+'LOG', $
+            uname='CONTOUR'+dir[i]+'LOG', event_pro='MainPlotLogButtons')
         if i eq 1 then $
-            wIsoButton = widget_button(wContourToggles, value='ISO ', $
+            wIsoButton = widget_button(wMainPlotToggles, value='ISO ', $
                 uname='ISO', event_pro='ISOButton') 
     endfor         
-    wContourRanges = widget_base(wContourOptions, row=1, /base_align_center)
-    wCurrentRange = widget_base(wContourRanges, /row, /base_align_center)
+    wMainPlotRanges = widget_base(wMainPlotOptions, row=1, /base_align_center)
+    wCurrentRange = widget_base(wMainPlotRanges, /row, /base_align_center)
     for i = 0, 2 do begin
         wRangeLabel = widget_label(wCurrentRange, value=dir[i]+':')
         wRangeMin = widget_text(wCurrentRange, /edit, $
-            xsize=sizes.contour_range, uname='CONTOUR'+dir[i]+'MIN', $
-            event_pro='ContourRanges', /kbrd_focus_events)
+            xsize=sizes.mainplot_range, uname='CONTOUR'+dir[i]+'MIN', $
+            event_pro='MainPlotRanges', /kbrd_focus_events)
         wRangeMax = widget_text(wCurrentRange, /edit, $
-            xsize=sizes.contour_range, uname='CONTOUR'+dir[i]+'MAX', $
-            event_pro='ContourRanges', /kbrd_focus_events)
+            xsize=sizes.mainplot_range, uname='CONTOUR'+dir[i]+'MAX', $
+            event_pro='MainPlotRanges', /kbrd_focus_events)
     endfor
-    state.wContourToggles = wContourToggles
-    state.wContourRanges = wContourRanges
+    state.wMainPlotToggles = wMainPlotToggles
+    state.wMainPlotRanges = wMainPlotRanges
 
     ; insert x and y cut sliders
     cut = 0 
     state.wSlider[cut+1].value_id = widget_text(wCutSliderBase[cut], /edit, $
-        xsize=sizes.slider_field, event_pro='XSliderValue')
+        xsize=sizes.slider_field, /kbrd_focus_events, event_pro='XSliderValue')
     state.wSlider[cut+1].max_id = widget_label(wCutSliderBase[cut], $
         value='12345678')
     state.wSlider[cut+1].id = widget_slider(wCutSliderBase[cut], /drag, $
@@ -1501,9 +1964,9 @@ pro browse, data_in, t_in, x_in, y_in, $
     state.wSlider[cut+1].max_id = widget_label(wCutSliderBase[cut], $
         value='12345678')
     state.wSlider[cut+1].value_id = widget_text(wCutSliderBase[cut], /edit, $
-        xsize=sizes.slider_field, event_pro='YSliderValue')
+        xsize=sizes.slider_field, /kbrd_focus_events, event_pro='YSliderValue')
   
-    ; cut column
+    ; cut plots column
     wCut = lonarr(2)
     dir = ['X', 'Y']
     naxis = [ nx, ny ]
@@ -1521,7 +1984,7 @@ pro browse, data_in, t_in, x_in, y_in, $
         wXRangeLabel = widget_label(wCutRanges[cut], value='X:')
         wXRangeMin = widget_text(wCutRanges[cut], /edit, $
             xsize=sizes.cut_range, uname=dir[cut]+'CUTXMIN', $
-            event_pro='CutRanges', /kbrd_focus_events)
+            event_pro='CutRanges')
         wXRangeMax = widget_text(wCutRanges[cut], /edit, $
             xsize=sizes.cut_range, uname=dir[cut]+'CUTXMAX', $
             event_pro='CutRanges', /kbrd_focus_events)
