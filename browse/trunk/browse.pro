@@ -576,6 +576,22 @@ end
 
 ;------------------------------------------------------------------------------
 ;+
+; Change a plot range field.
+;
+; :Params:
+;    id: in, required, type=integer
+;       widget id of the text field
+;    value: in, required, type=float
+;       value to set
+;-
+pro change_range_field, id, value
+    compile_opt idl2, hidden
+
+    widget_control, id, set_value=string(value, format='(g0.3)')
+end
+
+;------------------------------------------------------------------------------
+;+
 ; Handle events from the XLOG/YLOG toggles for the cut plots.
 ;
 ; :Params:
@@ -620,7 +636,7 @@ pro CutRanges, event
     name = widget_info(event.id, /uname)
     widget_control, event.id, get_value=value
     value = float(value)
-    widget_control, event.id, set_value=string(value, format='(g0.5)')
+    change_range_field, event.id, value
     ; strcmp returns 0 for 'XCUT', 1 for 'YCUT'
     cut = strcmp(name, 'YCUT', 4)
     dir = strcmp(strmid(name, 4, 1), 'Y')
@@ -735,7 +751,7 @@ pro MainPlotRanges, event
     name = widget_info(event.id, /uname)
     widget_control, event.id, get_value=value
     value = float(value)
-    widget_control, event.id, set_value=string(value, format='(g0.5)')
+    change_range_field, event.id, value
     dir = strmid(name, 7, 1)
     case dir of
         'X': dir = 0
@@ -924,21 +940,18 @@ pro DimList4D, event
             state.cut_axes[*, 1].max = state.zmax
         endelse
         widget = widget_info(state.wMainPlotRanges, find_by_uname='CONTOURZMIN')
-        widget_control, widget, set_value=string(state.mainplot_axes[2].min, $
-            format='(g0.3)')
+        change_range_field, widget, state.mainplot_axes[2].min
         widget = widget_info(state.wMainPlotRanges, find_by_uname='CONTOURZMAX')
-        widget_control, widget, set_value=string(state.mainplot_axes[2].max, $
-            format='(g0.3)')
+        change_range_field, widget, state.mainplot_axes[2].max
+
         uname = [ 'XCUT', 'YCUT' ]
         for cut = 0, n_elements(uname) - 1 do begin
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+'YMIN')
-            widget_control, widget, set_value=string( $
-                state.cut_axes[cut, 1].min, format='(g0.5)') 
+            change_range_field, widget, state.cut_axes[cut, 1].min
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+'YMAX')
-            widget_control, widget, set_value=string($ 
-                state.cut_axes[cut, 1].max, format='(g0.5)') 
+            change_range_field, widget, state.cut_axes[cut, 1].max
         endfor
         mainplot_redraw, state
         xcut_redraw, state
@@ -1026,22 +1039,18 @@ pro MainPlotTypeList, event
         if changed then begin 
             widget = widget_info(state.wMainPlotRanges, $
                 find_by_uname='CONTOURZMIN')
-            widget_control, widget, set_value=string( $
-                state.mainplot_axes[2].min, format='(g0.3)')
+            change_range_field, widget, state.mainplot_axes[2].min
             widget = widget_info(state.wMainPlotRanges, $
                 find_by_uname='CONTOURZMAX')
-            widget_control, widget, set_value=string( $
-                state.mainplot_axes[2].max, format='(g0.3)')
+            change_range_field, widget, state.mainplot_axes[2].max
             uname = [ 'XCUT', 'YCUT' ]
             for cut = 0, n_elements(uname) - 1 do begin
                 widget = widget_info(state.wCutRanges[cut], $
                     find_by_uname=uname[cut]+'YMIN')
-                widget_control, widget, set_value=string( $
-                    state.cut_axes[cut, 1].min, format='(g0.2)') 
+                change_range_field, widget, state.cut_axes[cut, 1].min
                 widget = widget_info(state.wCutRanges[cut], $
                     find_by_uname=uname[cut]+'YMAX')
-                widget_control, widget, set_value=string( $
-                    state.cut_axes[cut, 1].max, format='(g0.2)') 
+                change_range_field, widget, state.cut_axes[cut, 1].max
             endfor
         endif
 
@@ -1595,15 +1604,13 @@ pro reset_view, state, no_redraw=no_redraw
     uname = 'CONTOUR' + [ 'X', 'Y', 'Z' ] + 'MIN'
     for i = 0, n_elements(uname) - 1 do begin
         widget = widget_info(state.wMainPlotRanges, find_by_uname=uname[i])
-        widget_control, widget, set_value=string(state.mainplot_axes[i].min, $
-            format='(g0.5)')
+        change_range_field, widget, state.mainplot_axes[i].min
     endfor
 
     uname = 'CONTOUR' + [ 'X', 'Y', 'Z' ] + 'MAX'
     for i = 0, n_elements(uname) - 1 do begin
         widget = widget_info(state.wMainPlotRanges, find_by_uname=uname[i])
-        widget_control, widget, set_value=string(state.mainplot_axes[i].max, $
-            format='(g0.5)')
+        change_range_field, widget, state.mainplot_axes[i].max
     endfor
 
     uname = [ 'XCUT', 'YCUT' ]
@@ -1612,12 +1619,10 @@ pro reset_view, state, no_redraw=no_redraw
         for d = 0, 1 do begin
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+dir[d]+'MIN')
-            widget_control, widget, set_value=string( $
-                state.cut_axes[cut, d].min, format='(g0.5)') 
+            change_range_field, widget, state.cut_axes[cut, d].min
             widget = widget_info(state.wCutRanges[cut], $
                 find_by_uname=uname[cut]+dir[d]+'MAX')
-            widget_control, widget, set_value=string( $
-                state.cut_axes[cut, d].max, format='(g0.5)') 
+            change_range_field, widget, state.cut_axes[cut, d].max
         endfor
     endfor
     widget_control, state.wSlider[0].id, set_value=0
