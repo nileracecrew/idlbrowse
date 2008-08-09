@@ -1,6 +1,6 @@
 pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
-             nlevels=nlevels, bar_charsize=bar_charsize, $
-             bar_pad=bar_pad, bar_title=bar_title, scientific=scientific, color=color, $
+             nlevels=nlevels, fill=fill, bar_charsize=bar_charsize, $
+             bar_pad=bar_pad, bar_title=bar_title, scientific=scientific, $
              _extra=extra
     compile_opt idl2, hidden
     on_error, 2
@@ -13,7 +13,9 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
         zmax = max(z0)
     if n_elements(zmin) eq 0 then $
         zmin = min(z0)
-    
+    if n_elements(fill) eq 0 then $
+        fill = 1
+
     if !p.charsize eq 0.0 then begin
         charsize = 1.0 
     endif else begin
@@ -66,9 +68,9 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
     endif  
 
     if n_elements(x) eq 0 then $
-        contour, z0, /fill, nlevels=nlevels, levels=levels, c_colors=c_colors, _extra=extra $
+        contour, z0, fill=fill, nlevels=nlevels, levels=levels, c_colors=c_colors, _extra=extra $
     else $
-        contour, z0, x, y, /fill, nlevels=nlevels, levels=levels, c_colors=c_colors, _extra=extra
+        contour, z0, x, y, fill=fill, nlevels=nlevels, levels=levels, c_colors=c_colors, _extra=extra
 
     if keyword_set(colorbar) then begin
         if keyword_set(zlog) then $

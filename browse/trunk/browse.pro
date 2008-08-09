@@ -1,3 +1,5 @@
+; docformat = 'rst'
+
 ;------------------------------------------------------------------------------
 ;+
 ; Open a Z-buffer for doing buffered writes to the draw widgets.
@@ -26,7 +28,7 @@ end
 
 ;------------------------------------------------------------------------------
 ;+
-; Create a filled contour plot of the current slice.  
+; Create a filled contour or level plot of the current slice.  
 ;
 ; :Params:
 ;    state : in, required, type=struct
@@ -37,9 +39,10 @@ end
 ; :Keywords:
 ;    no_z_buffer : in, optional, type=boolean
 ;       Set this keyword to disable buffered writes to the graphics window.
-;
+;    fill: in, optional, type=boolean
+;       If set, makes level plot instead of a filled contour plot.
 ;-
-pro contour_plot, state, scale, no_z_buffer = no_z_buffer
+pro contour_plot, state, scale, no_z_buffer=no_z_buffer, no_fill=no_fill
     compile_opt idl2, hidden
 
     if ~keyword_set(no_z_buffer) then begin
@@ -47,9 +50,12 @@ pro contour_plot, state, scale, no_z_buffer = no_z_buffer
         open_z_buffer, geometry.draw_xsize*scale, geometry.draw_ysize*scale
     endif
 
+    if keyword_set(no_fill) then nlevels = 25 else nlevels = 60
+
     density_params = { $
+        fill: ~keyword_set(no_fill), nlevels: nlevels, $ 
         colorbar: 1, xstyle: 1, ystyle: 1, charsize: 1.4*scale, $
-        charthick: 1.0*scale, bar_pad: 1.4, $
+        charthick: 1.0*scale, bar_pad: 1.8, $
         xthick: 1.0*scale, ythick: 1.0*scale, zthick: 1.0*scale, $
         thick: 1.0*scale, $
         xrange: [state.mainplot_axes[0].min, state.mainplot_axes[0].max], $
@@ -88,6 +94,26 @@ pro contour_plot, state, scale, no_z_buffer = no_z_buffer
         clip=clip, noclip=0
     if ~keyword_set(no_z_buffer) then $
         close_z_buffer
+end
+
+;------------------------------------------------------------------------------
+;+
+; Create a level plot of the current slice.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;
+; :Keywords:
+;    no_z_buffer : in, optional, type=boolean
+;       Set this keyword to disable buffered writes to the graphics window.
+;-
+pro level_plot, state, scale, no_z_buffer=no_z_buffer
+    compile_opt idl2, hidden
+
+    contour_plot, state, scale, no_z_buffer=no_z_buffer, /no_fill
 end
 
 ;------------------------------------------------------------------------------
@@ -277,7 +303,7 @@ pro xcut_plot, state, scale
         xlog: state.cut_axes[0,0].log, ylog: state.cut_axes[0,1].log, $
         title: state.titles[2] + ' = ' + string(state.y[state.yi], $
             format='(g0.5)'), $
-        xtitle: state.titles[1], ytitle: state.titles[3] $
+        xtitle: state.titles[1], ytitle: state.titles[3], xmargin: [12,3] $
     }
     if state.zi eq 0 then $
         cut = (*state.mag)[state.ti, *, state.yi] $
@@ -308,7 +334,7 @@ pro ycut_plot, state, scale
         xlog: state.cut_axes[1,0].log, ylog: state.cut_axes[1,1].log, $
         title: state.titles[1] + ' = ' + string(state.x[state.xi], $
             format='(g0.5)'), $
-        xtitle: state.titles[2], ytitle: state.titles[3] $
+        xtitle: state.titles[2], ytitle: state.titles[3], xmargin: [12,3] $
     }
     if state.zi eq 0 then $
         cut = (*state.mag)[state.ti, state.xi, *] $
@@ -325,8 +351,10 @@ end
 ;    state : in, required, type=struct
 ;       Browse state structure
 ;-
-pro mainplot_redraw, state
+pro mainplot_redraw, state, scale=scale
     compile_opt idl2, hidden
+
+    if n_elements(scale) eq 0 then scale = 1.0
 
     plot_state = current_plot_state()
     scale3, az=state.rotation.zangle, ax=state.rotation.xangle
@@ -334,9 +362,10 @@ pro mainplot_redraw, state
     wset, win
     case widget_info(state.wMainPlotType, /droplist_select) of
         0: contour_plot, state, 1.0
-        1: surface_plot, state, 1.0
-        2: shadesurf_plot, state, 1.0
-        3: velovect_plot, state, 1.0
+        1: level_plot, state, 1.0
+        2: surface_plot, state, 1.0
+        3: shadesurf_plot, state, 1.0
+        4: velovect_plot, state, 1.0
     endcase
     restore_plot_state, plot_state
 end
@@ -674,7 +703,7 @@ pro MainPlotMouseEvent, event
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
 
-    if (state.mainplot_type eq 1) || (state.mainplot_type eq 2) then begin
+    if (state.mainplot_type eq 2) || (state.mainplot_type eq 3) then begin
         widget_control, state.wMainPlot, get_value=win
         plot_state = current_plot_state()
         wset, win
@@ -932,7 +961,7 @@ pro DimList4D, event
             state.cut_axes[*, 1].max = state.ref_mag
         endif else begin
             ; only change the zrange if the main plot is not velovect
-            if state.mainplot_type ne 3 then begin
+            if state.mainplot_type ne 4 then begin
                 state.mainplot_axes[2].min = state.zmin
                 state.mainplot_axes[2].max = state.zmax
             endif
@@ -1003,7 +1032,8 @@ end
 
 ;------------------------------------------------------------------------------
 ;+
-; Handle events from the droplist that selects the type (contour, surface, etc.)
+; Handle events from the droplist that selects the main plot type (contour,
+; surface, etc.)
 ; of plot for the main plot.
 ;
 ; :Params:
@@ -1019,14 +1049,14 @@ pro MainPlotTypeList, event
         changed = 0
         if state.zi ne 0 then begin
             ; change zranges to vector magnitude if going to velovect
-            if (event.index eq 3) then begin
+            if (event.index eq 4) then begin
                 changed = 1
                 state.mainplot_axes[2].min = 0 
                 state.mainplot_axes[2].max = state.ref_mag
                 state.cut_axes[*, 1].min = 0.
                 state.cut_axes[*, 1].max = state.ref_mag
             ; change zranges to zmin/zmax if coming from velovect
-            endif else if (state.mainplot_type eq 3) then begin
+            endif else if (state.mainplot_type eq 4) then begin
                 changed = 1
                 state.mainplot_axes[2].min = state.zmin 
                 state.mainplot_axes[2].max = state.zmax
@@ -1101,7 +1131,7 @@ pro VAR_event, event
                 endelse
                 (scope_varfetch(form.varname, /enter, level=1)) = s
             endif else begin
-                if state.mainplot_type eq 3 then begin
+                if state.mainplot_type eq 4 then begin
                      slice = reform((*state.data)[state.ti, *, *, *])
                 endif else begin
                     if state.zi eq 0 then begin
@@ -1179,11 +1209,13 @@ pro PNGButton, event
  
         basename = file_basename(filename, '.png', /fold_case) 
         window, /free, xsize=png_xsize, ysize=png_ysize, /pixmap
+        scale3, az=state.rotation.zangle, ax=state.rotation.xangle
         case widget_info(state.wMainPlotType, /droplist_select) of
             0: contour_plot, state, scale, /no_z_buffer
-            1: surface_plot, state, scale, /no_z_buffer
-            2: shadesurf_plot, state, scale, /no_z_buffer
-            3: velovect_plot, state, scale, /no_z_buffer
+            1: level_plot, state, scale, /no_z_buffer
+            2: surface_plot, state, scale, /no_z_buffer
+            3: shadesurf_plot, state, scale, /no_z_buffer
+            4: velovect_plot, state, scale, /no_z_buffer
         endcase
         write_png, path + basename + '.png', tvrd(/true)
         wdelete
@@ -1514,7 +1546,7 @@ function init_state, data, t_in, x_in, y_in, titles, p=p, old_p=old_p
         wCutRanges: lonarr(2), $               ; x/y cut ranges base ids
         wSlider: wSlider, $                    ; slider id structures
         titles: titles, $                      ; strarr of axis titles
-        mainplot_type: 0, $                    ; type of main plot
+        mainplot_type: 0, $                    ; contour/surface/velovect/etc
         zmin: min(*data), zmax: max(*data), $  ; min/max of dataset
         data: data, $                          ; ptr to dataset
         mag: mag, $                            ; ptr to vector magnitudes
@@ -1574,7 +1606,7 @@ pro reset_view, state, no_redraw=no_redraw
 
     ; By default, scale the z-axis according to the vector magnitude if we have
     ; a velovect plot or 'MAG' is selected.
-    if (state.mainplot_type eq 3) || (state.zi eq 0) then begin
+    if (state.mainplot_type eq 4) || (state.zi eq 0) then begin
         state.mainplot_axes[2].min = 0.
         state.mainplot_axes[2].max = state.ref_mag
         state.cut_axes[*, 1].min = 0.
@@ -1866,17 +1898,17 @@ pro browse, data_in, t_in, x_in, y_in, $
            end
     endcase
     ; create the plot type droplist
-    wMainPlotButtonsBase = widget_base(wToolbarBase, /base_align_center, /row, $
-        frame=1)
+    wMainPlotButtonsBase = widget_base(wToolbarBase, /base_align_center, $
+        /row, frame=1)
     if ndims eq 4 then begin
         state.wMainPlotType = widget_droplist(wMainPlotButtonsBase, $
-            value=['Contour', 'Surface', 'ShadeSurface', 'Velovect'], $
+            value=['Contour', 'Level', 'Surface', 'ShadeSurface', 'Velovect'], $
             event_pro='MainPlotTypeList')
-        widget_control, state.wMainPlotType, set_droplist_select=3
-        state.mainplot_type = 3
+        widget_control, state.wMainPlotType, set_droplist_select=4
+        state.mainplot_type = 4
     endif else begin
         state.wMainPlotType = widget_droplist(wMainPlotButtonsBase, $
-            value=['Contour', 'Surface', 'ShadeSurface'], $
+            value=['Contour', 'Level', 'Surface', 'ShadeSurface'], $
             event_pro='MainPlotTypeList')
         state.mainplot_type = 0
     endelse
