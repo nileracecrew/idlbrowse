@@ -1786,9 +1786,18 @@ pro browse, data_in, t_in, x_in, y_in, $
     loadct, 39, /silent
     plot_state = current_plot_state()
 
-    ; if possible, use the IDL variable name of the dataset as the title
-    dataset_name = scope_varname(data_in, level=-1) 
-    if dataset_name eq '' then dataset_name = 'data'
+    if n_elements(ztitle) eq 0 then begin
+        ; if possible, use the IDL variable name of the dataset as the title
+        ztitle = scope_varname(data_in, level=-1) 
+        if ztitle eq '' then begin 
+            ztitle = 'data' 
+            window_title = 'Data Browser'
+        endif else begin
+            window_title = 'Data Browser - ' + ztitle
+        endelse
+    endif else begin
+        window_title = 'Data Browser - ' + ztitle
+    endelse
 
     widget_control, /hourglass
     
@@ -1833,9 +1842,9 @@ pro browse, data_in, t_in, x_in, y_in, $
     endif
 
     if keyword_set(f) then $
-        titles = [ 'f', 'x', 'y', dataset_name ] $
+        titles = [ 'f', 'x', 'y', ztitle ] $
     else $
-        titles = [ 't', 'x', 'y', dataset_name ]
+        titles = [ 't', 'x', 'y', ztitle ]
 
     if n_elements(ttitle) ne 0 then titles[0] = ttitle
     if n_elements(xtitle) ne 0 then titles[1] = xtitle
@@ -1849,11 +1858,6 @@ pro browse, data_in, t_in, x_in, y_in, $
     nt = n_elements(state.t)
     nx = n_elements(state.x)
     ny = n_elements(state.y)
-
-    if dataset_name eq 'data' then $
-        window_title = 'Data Browser' $
-    else $
-        window_title = 'Data Browser - ' + dataset_name
 
     ; create the main widget bases
     wBase = widget_base(column=1, title=window_title,  $
