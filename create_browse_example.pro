@@ -8,7 +8,7 @@ pro create_browse_example
     xpos = findgen(nx)/nx*10. - 5.
     ypos = findgen(ny)/ny*10. - 5.
     bz = 13.0152	
-    a = 4.
+    a = 6.
     r0 = 6.3802/bz*a
     r1 = 9.7610/bz*a
     m = 3
