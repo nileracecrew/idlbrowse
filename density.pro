@@ -74,7 +74,7 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
 
     if keyword_set(colorbar) then begin
         if keyword_set(zlog) then $
-            format='(%"' + TeXtoIDL('10^{%i}') + '")' $
+            format='(%"' + '10!U%i!N' + '")' $
         else if keyword_set(scientific) then $
             format='(%"%0.2e")' $
         else $
