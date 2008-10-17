@@ -1,3 +1,5 @@
+; VERSION 0.9
+
 ; docformat = 'rst'
 
 ;------------------------------------------------------------------------------
@@ -12,7 +14,7 @@
 ;
 ;-
 pro open_z_buffer, x, y
-    set_plot, 'z'
+    set_plot, 'Z'
     device, set_resolution=[x,y], decomposed=0, set_character_size=[6,10]
 end
 
@@ -22,7 +24,11 @@ end
 ;-
 pro close_z_buffer
     image=tvrd()
-    set_plot, 'X'
+    case strupcase(!version.os_family) of
+      'WINDOWS': set_plot, 'WIN'
+      'MAC': set_plot, 'MAC'
+      else: set_plot, 'X'
+    endcase
     tv, image
 end
 
@@ -1750,10 +1756,6 @@ pro browse, data_in, t_in, x_in, y_in, $
     compile_opt idl2, hidden
     on_error, 2
 
-    if !VERSION.OS_FAMILY ne 'unix' then $
-        message, 'Browse currently only supports IDL on Unix platforms' + $
-            ' (including OS X).'
-
     if keyword_set(help) || (n_params() eq 0) then begin
         print
         print, 'Usage: browse, <dataset>, <t>, <x>, <y>, [ keywords ]'
@@ -1781,7 +1783,11 @@ pro browse, data_in, t_in, x_in, y_in, $
         return
     endif
 
-    set_plot, 'X'
+    case strupcase(!version.os_family) of
+      'WINDOWS': set_plot, 'WIN'
+      'MAC': set_plot, 'MAC'
+      else: set_plot, 'X'
+    endcase
     device, decomposed=0
     loadct, 39, /silent
     plot_state = current_plot_state()
