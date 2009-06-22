@@ -958,7 +958,6 @@ pro DimList4D, event
 
     widget_control, event.top, GET_UVALUE=state, /no_copy
     if event.index ne state.zi then begin
-        state.zi = event.index
         ; reset the zranges to something appropriate for the new selection
         if state.zi eq 0 then begin
             state.mainplot_axes[2].min = 0.
@@ -966,14 +965,15 @@ pro DimList4D, event
             state.cut_axes[*, 1].min = 0.
             state.cut_axes[*, 1].max = state.ref_mag
         endif else begin
-            ; only change the zrange if the main plot is not velovect
-            if state.mainplot_type ne 4 then begin
+            ; only change zrange if old state.zi was 0
+            if state.zi eq 0 then begin
                 state.mainplot_axes[2].min = state.zmin
                 state.mainplot_axes[2].max = state.zmax
             endif
             state.cut_axes[*, 1].min = state.zmin
             state.cut_axes[*, 1].max = state.zmax
         endelse
+        state.zi = event.index
         widget = widget_info(state.wMainPlotRanges, find_by_uname='CONTOURZMIN')
         change_range_field, widget, state.mainplot_axes[2].min
         widget = widget_info(state.wMainPlotRanges, find_by_uname='CONTOURZMAX')
