@@ -132,15 +132,16 @@ badxy:                  message, 'X and Y arrays have incorrect size.'
         max_dim = 30
         nx = (size(x_in))[1]
         ny = (size(y_in))[1]
-        if (nx gt max_dim) || (ny gt max_dim) then begin
-            if ~keyword_set(no_reduce) then begin
-                u = congrid(temporary(u), nx < max_dim, ny < max_dim, /interp)
-                v = congrid(temporary(v), nx < max_dim, ny < max_dim, /interp)
-                x = congrid(x_in, nx < max_dim, /interp)
-                y = congrid(y_in, ny < max_dim, /interp)
-                s = size(u)
-                t = size(v)
-            endif 
+        if ((nx gt max_dim) || (ny gt max_dim)) && ~keyword_set(no_reduce) then begin
+            u = congrid(temporary(u), nx < max_dim, ny < max_dim, /interp)
+            v = congrid(temporary(v), nx < max_dim, ny < max_dim, /interp)
+            x = congrid(x_in, nx < max_dim, /interp)
+            y = congrid(y_in, ny < max_dim, /interp)
+            s = size(u)
+            t = size(v)
+		    if n_elements(veccolors) ne 0 then begin
+                veccolors=congrid(temporary(veccolors), nx < max_dim, ny < max_dim, /interp)
+            endif
         endif else begin
             x = x_in
             y = y_in
@@ -212,6 +213,7 @@ badxy:                  message, 'X and Y arrays have incorrect size.'
 		if n_elements(veccolors) eq 0 then begin
 			veccolors = bytscl(mag[good], min=lmin, max=lmax, top=254)
 		endif
+
         for i=0L,n_elements(good)-1 do begin     ;Each point
                 x0 = x[good[i] mod s[1]]        ;get coords of start & end
                 dx = sina[i]
