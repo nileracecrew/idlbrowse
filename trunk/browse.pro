@@ -331,8 +331,8 @@ pro velovect_contour_plot, state, scale, no_z_buffer=no_z_buffer, no_fill=no_fil
         bar_title: state.titles[3] $
     }
     if state.reduced then begin
-        xbin = (max(state.x_red) - min(state.x_red)) / (n_elements(state.x_red) - 1.) * 2
-        ybin = (max(state.y_red) - min(state.y_red)) / (n_elements(state.y_red) - 1.) * 2
+        xbin = (max(*state.x_red) - min(*state.x_red)) / (n_elements(*state.x_red) - 1.) * 2
+        ybin = (max(*state.y_red) - min(*state.y_red)) / (n_elements(*state.y_red) - 1.) * 2
         density_params.xrange += [ -xbin, xbin ]
         density_params.yrange += [ -ybin, ybin ]
         if state.zi eq 0 then $
