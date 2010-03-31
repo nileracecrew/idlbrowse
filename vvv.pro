@@ -54,17 +54,17 @@ pro vvv, u_in, v_in, xpos_in, ypos_in, length = length, $
     if n_elements(xrange) eq 0 then $
         nxbin = float(nx) $
     else $
-        nxbin = float(xrange[1] - xrange[0])/xbin
+        nxbin = abs(float(xrange[1] - xrange[0])/xbin)
 
     if n_elements(yrange) eq 0 then $
         nybin = float(ny) $
     else $
-        nybin = float(yrange[1] - yrange[0])/ybin
+        nybin = abs(float(yrange[1] - yrange[0])/ybin)
 
     ; if there will be too many arrows, resize the dataset
     if ((nxbin gt max_dim) || (nybin gt max_dim)) && ~keyword_set(no_reduce) then begin
-        nx = long(nx * (max_dim/nxbin)) < nx
-        ny = long(ny * (max_dim/nybin)) < ny
+        nx = long(nx * (max_dim/nxbin)) < nx > 2
+        ny = long(ny * (max_dim/nybin)) < ny > 2
         u = congrid(temporary(u), nx, ny, /interp, /minus_one)
         v = congrid(temporary(v), nx, ny, /interp, /minus_one)
         xpos = congrid(xpos, nx, /interp, /minus_one)
