@@ -1,6 +1,6 @@
 ;+
 ; NAME:
-;   COLORBAR
+;   BROWSE_COLORBAR
 ;
 ; PURPOSE:
 ;
@@ -16,6 +16,9 @@
 ;   Phone: 970-221-0438
 ;   E-mail: davidf@dfanning.com
 ;   Coyote's Guide to IDL Programming: http://www.dfanning.com/
+;
+;   Very slightly modified by Eric Lawrence (nrc@ucla.edu) to keep old 
+;   title placement behavior.
 ;
 ; CATEGORY:
 ;
@@ -169,7 +172,7 @@
 ;###########################################################################
 
 
-PRO COLORBAR, BOTTOM=bottom, CHARSIZE=charsize, COLOR=color, DIVISIONS=divisions, $
+PRO BROWSE_COLORBAR, BOTTOM=bottom, CHARSIZE=charsize, COLOR=color, DIVISIONS=divisions, $
    FORMAT=format, POSITION=position, MAXRANGE=maxrange, MINRANGE=minrange, NCOLORS=ncolors, $
    TITLE=title, VERTICAL=vertical, TOP=top, RIGHT=right, MINOR=minor, $
    RANGE=range, FONT=font, TICKLEN=ticklen, _EXTRA=extra, INVERTCOLORS=invertcolors, $
@@ -178,6 +181,7 @@ PRO COLORBAR, BOTTOM=bottom, CHARSIZE=charsize, COLOR=color, DIVISIONS=divisions
    ; Return to caller on error.
 
 On_Error, 2
+compile_opt hidden
 
    ; Save the current plot state.
 

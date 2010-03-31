@@ -261,18 +261,18 @@ pro velovect_plot, state, scale, no_z_buffer=no_z_buffer
         lmin: state.mainplot_axes[2].min, lmax: state.mainplot_axes[2].max, $
         xlog: state.mainplot_axes[0].log, ylog: state.mainplot_axes[1].log, $
         isotropic: state.iso, $
-        length: state.max_mag[state.ti]/state.mainplot_axes[2].max*2., $
         title: state.titles[0]+ ' = ' + string(state.t[state.ti], $
             format='(g0.5)'), $
         xtitle: state.titles[1], ytitle: state.titles[2], $
-        bar_title: state.titles[3]  $
+        bar_title: state.titles[3],  $
+        no_arrow_resize: 1 $
     } 
     if state.reduced then begin
-        velovectcolor, (*state.data_red)[state.ti, *, *, 0], $
+        vvv, (*state.data_red)[state.ti, *, *, 0], $
             (*state.data_red)[state.ti, *, *, 1], *state.x_red, *state.y_red, $
             _extra=velovect_params
     endif else begin
-        velovectcolor, (*state.data)[state.ti, *, *, 0], $
+        vvv, (*state.data)[state.ti, *, *, 0], $
             (*state.data)[state.ti, *, *, 1], state.x, state.y, $
             _extra=velovect_params
     endelse
@@ -283,6 +283,87 @@ pro velovect_plot, state, scale, no_z_buffer=no_z_buffer
     plots, [min(state.x), max(state.x)], $
         [state.y[state.yi], state.y[state.yi]], /data, $ 
         thick=2.0*scale, clip=clip, noclip=0
+    if ~keyword_set(no_z_buffer) then $
+        close_z_buffer
+end
+
+;------------------------------------------------------------------------------
+;+
+; Create a filled contour or level plot of the current slice with an 
+; overplotted vector field.  
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;    scale : in, required, type=float
+;       Size of a plot pixel relative to a device pixel. Usually set to 1.
+;
+; :Keywords:
+;    no_z_buffer : in, optional, type=boolean
+;       Set this keyword to disable buffered writes to the graphics window.
+;    fill: in, optional, type=boolean
+;       If set, makes level plot instead of a filled contour plot.
+;-
+pro velovect_contour_plot, state, scale, no_z_buffer=no_z_buffer, no_fill=no_fill
+    compile_opt idl2, hidden
+
+    if ~keyword_set(no_z_buffer) then begin
+        geometry = widget_info(state.wMainPlot, /geometry)
+        open_z_buffer, geometry.draw_xsize*scale, geometry.draw_ysize*scale
+    endif
+
+    if keyword_set(no_fill) then nlevels = 25 else nlevels = 60
+
+    density_params = { $
+        fill: ~keyword_set(no_fill), nlevels: nlevels, $ 
+        colorbar: 1, xstyle: 1, ystyle: 1, charsize: 1.4*scale, $
+        charthick: 1.0*scale, bar_pad: 1.8, $
+        xthick: 1.0*scale, ythick: 1.0*scale, zthick: 1.0*scale, $
+        thick: 1.0*scale, $
+        xrange: [state.mainplot_axes[0].min, state.mainplot_axes[0].max], $
+        yrange: [state.mainplot_axes[1].min, state.mainplot_axes[1].max], $
+        zmin: state.mainplot_axes[2].min, zmax: state.mainplot_axes[2].max, $
+        xlog: state.mainplot_axes[0].log, ylog: state.mainplot_axes[1].log, $
+        zlog: state.mainplot_axes[2].log, isotropic: state.iso, $
+        title: state.titles[0]+ ' = ' + string(state.t[state.ti], $
+            format='(g0.5)'), $
+        xtitle: state.titles[1], ytitle: state.titles[2], $
+        bar_title: state.titles[3] $
+    }
+    if state.reduced then begin
+        xbin = (max(state.x_red) - min(state.x_red)) / (n_elements(state.x_red) - 1.) * 2
+        ybin = (max(state.y_red) - min(state.y_red)) / (n_elements(state.y_red) - 1.) * 2
+        density_params.xrange += [ -xbin, xbin ]
+        density_params.yrange += [ -ybin, ybin ]
+        if state.zi eq 0 then $
+            density, (*state.mag_red)[state.ti, *, *], *state.x_red, $
+                *state.y_red, _extra = density_params $
+        else $
+            density, (*state.data_red)[state.ti, *, *, state.zi - 1], $
+                *state.x_red, *state.y_red, _extra = density_params
+        vvv, (*state.data_red)[state.ti, *, *, 0], (*state.data_red)[state.ti, *, *, 1], *state.x_red, *state.y_red, length=1.0*state.max_mag[state.ti]/state.ref_mag, veccolor=255, /overplot
+    endif else begin
+        xbin = (max(state.x) - min(state.x)) / (n_elements(state.x) - 1.) * 2
+        ybin = (max(state.y) - min(state.y)) / (n_elements(state.y) - 1.) * 2
+        ;density_params.xrange += [ -xbin, xbin ]
+       ;xs density_params.yrange += [ -ybin, ybin ]
+        if state.zi eq 0 then $
+            density, (*state.mag)[state.ti, *, *], state.x, state.y, $
+                _extra = density_params $
+        else $
+            density, (*state.data)[state.ti, *, *, state.zi - 1], state.x, $
+                state.y, _extra = density_params
+        vvv, (*state.data)[state.ti, *, *, 0], (*state.data)[state.ti, *, *, 1], state.x, state.y, length=1.0*state.max_mag[state.ti]/state.ref_mag, veccolors=255, /overplot
+    endelse
+
+    clip = [ state.mainplot_axes[0].min, state.mainplot_axes[1].min, $
+        state.mainplot_axes[0].max, state.mainplot_axes[1].max ]
+    plots, [state.x[state.xi], state.x[state.xi]], $
+        [min(state.y), max(state.y)], /data, thick=2.0*scale, clip=clip, $
+        noclip=0
+    plots, [min(state.x), max(state.x)], $
+        [state.y[state.yi], state.y[state.yi]], /data, thick=2.0*scale, $
+        clip=clip, noclip=0
     if ~keyword_set(no_z_buffer) then $
         close_z_buffer
 end
@@ -372,6 +453,7 @@ pro mainplot_redraw, state, scale=scale
         2: surface_plot, state, 1.0
         3: shadesurf_plot, state, 1.0
         4: velovect_plot, state, 1.0
+        5: velovect_contour_plot, state, 1.0
     endcase
     restore_plot_state, plot_state
 end
@@ -818,6 +900,8 @@ pro MainPlotRanges, event
                 state.mainplot_axes[1].max])
             xirange = xirange[sort(xirange)]
             yirange = yirange[sort(yirange)]
+            if yirange[0] eq yirange[1] then $
+                yirange = [0, 1]
             ; need at least 2 points else the dimension will be reformed away
             nx = (xirange[1] - xirange[0] + 1) > 2 
             ny = (yirange[1] - yirange[0] + 1) > 2 
@@ -825,24 +909,28 @@ pro MainPlotRanges, event
             ptr_free, state.x_red
             ptr_free, state.y_red
             state.x_red = ptr_new(congrid(state.x[xirange[0]:xirange[1]], $
-                nx < max_dim), /no_copy)
+                nx < max_dim, /minus_one, /interp), /no_copy)
             state.y_red = ptr_new(congrid(state.y[yirange[0]:yirange[1]], $
-                ny < max_dim), /no_copy)
+                ny < max_dim, /minus_one, /interp), /no_copy)
             if (size(*state.data))[0] eq 4 then begin
                 ndir = (size(*state.data, /dimensions))[3]
-                data_red = fltarr(nt, nx < max_dim, ny < max_dim, ndir, /nozero)
+                data_red = fltarr(nt, nx < max_dim, ny < max_dim, ndir, $
+                    /nozero)
                 for i = 0, ndir - 1 do begin
                     data_red[*, *, *, i] = congrid((*state.data)[ $
                         *, xirange[0]:xirange[1], yirange[0]:yirange[1], i], $
-                        nt, nx < max_dim, ny < max_dim)
+                        nt, nx < max_dim, ny < max_dim, /minus_one, /interp)
                 endfor 
                 mag_red = congrid((*state.mag)[*, xirange[0]:xirange[1], $
-                    yirange[0]:yirange[1]], nt, nx < max_dim, ny < max_dim)
+                    yirange[0]:yirange[1]], nt, nx < max_dim, ny < max_dim, $
+                    /minus_one, /interp)
             endif else begin
                 data_red = congrid((*state.data)[*, xirange[0]:xirange[1], $
-                    yirange[0]:yirange[1]], nt, nx < max_dim, ny < max_dim)
+                    yirange[0]:yirange[1]], nt, nx < max_dim, ny < max_dim, $
+                    /minus_one, /interp)
                 mag_red = 0
             endelse
+
             ptr_free, state.data_red
             ptr_free, state.mag_red
             state.data_red = ptr_new(data_red, /no_copy)    
@@ -959,7 +1047,7 @@ pro DimList4D, event
     widget_control, event.top, GET_UVALUE=state, /no_copy
     if event.index ne state.zi then begin
         ; reset the zranges to something appropriate for the new selection
-        if state.zi eq 0 then begin
+        if event.index eq 0 then begin
             state.mainplot_axes[2].min = 0.
             state.mainplot_axes[2].max = state.ref_mag
             state.cut_axes[*, 1].min = 0.
@@ -1018,6 +1106,7 @@ pro DimSetButton, event
     if array_equal(uniq(p), [0,1,2]) then begin
         newstate = init_state(*state.data, state.t, state.x, state.y, $
             state.titles, p=p, old_p=state.p) 
+        free_browse_pointers, state
         newstate.wMainPlot = state.wMainPlot
         newstate.wMainPlotType = state.wMainPlotType
         newstate.wMainPlotToggles = state.wMainPlotToggles
@@ -1358,6 +1447,25 @@ end
 
 ;------------------------------------------------------------------------------
 ;+
+; Deallocate data pointers in state structure.
+;
+; :Params:
+;    state : in, required, type=struct
+;       Browse state structure
+;-
+pro free_browse_pointers, state
+    compile_opt idl2, hidden
+
+    ptr_free, state.data
+    ptr_free, state.data_red
+    ptr_free, state.mag
+    ptr_free, state.mag_red
+    ptr_free, state.x_red
+    ptr_free, state.y_red
+end
+
+;------------------------------------------------------------------------------
+;+
 ; Clean up procedure.
 ;
 ; :Params:
@@ -1368,10 +1476,7 @@ pro BrowseCleanup, wBase
     compile_opt idl2, hidden
 
     widget_control, wBase, get_uvalue=state, /no_copy
-    ptr_free, state.data
-    ptr_free, state.data_red
-    ptr_free, state.mag
-    ptr_free, state.mag_red
+    free_browse_pointers, state
 end
 
 ;------------------------------------------------------------------------------
@@ -1489,18 +1594,18 @@ function init_state, data, t_in, x_in, y_in, titles, p=p, old_p=old_p
     max_dim = 200
     if (nx gt max_dim) || (ny gt max_dim) then begin
         reduced = 1
-        x_red = congrid(x, nx < max_dim)
-        y_red = congrid(y, ny < max_dim)
+        x_red = congrid(x, nx < max_dim, /minus_one, /interp)
+        y_red = congrid(y, ny < max_dim, /minus_one, /interp)
         if (size(data))[0] eq 4 then begin
             ndir = (size(data, /dimensions))[3]
             data_red = fltarr(nt, nx < max_dim, ny < max_dim, ndir, /nozero)
             for i = 0, ndir - 1 do begin
                 data_red[*, *, *, i] = congrid(data[*, *, *, i], nt, $
-                    nx < max_dim, ny < max_dim)
+                    nx < max_dim, ny < max_dim, /minus_one, /interp)
             endfor 
-            mag_red = congrid(mag, nt, nx < max_dim, ny < max_dim)
+            mag_red = congrid(mag, nt, nx < max_dim, ny < max_dim, /minus_one, /interp)
         endif else begin
-            data_red = congrid(data, nt, nx < max_dim, ny < max_dim)
+            data_red = congrid(data, nt, nx < max_dim, ny < max_dim, /minus_one, /interp)
             mag_red = 0
             zi = 1
        endelse    
@@ -1749,7 +1854,7 @@ end
 ;     help: in, optional, type=boolean
 ;       print a help message
 ;-
-pro browse, data_in, t_in, x_in, y_in, $
+pro browse, data_in, t_in, x_in, y_in, scalar = scalar, $
         ttitle=ttitle, xtitle=xtitle, ytitle=ytitle, data_title=ztitle, $
         p=p, f=f, h5select=h5select, help=help
 
@@ -1758,27 +1863,31 @@ pro browse, data_in, t_in, x_in, y_in, $
 
     if keyword_set(help) || (n_params() eq 0) then begin
         print
-        print, 'Usage: browse, <dataset>, <t>, <x>, <y>, [ keywords ]'
-        print, '    where <dataset> is a 3D or 4D array, or an h5variable ' $
+        print, 'Usage: browse, DATA, T, X, Y, [ named keywords ]'
+        print, '    where DATA is a 3D or 4D array, or an h5variable ' $
             + 'object;'
-        print, '    and <t>, <x>, and <y> are 1D arrays of coordinates for ' $
+        print, '    and T, X, and Y are 1D arrays of coordinates for ' $
             + 'each axis (optional).'
         print
-        print, 'Keywords: '
-        print, '    [txy]title: A string specifying the plot titles for ' $
+        print, 'Named keywords: '
+        print, '    SCALAR: Optional 3D/4D scalar dataset to be concatenated' $
+            +  ' with the primary '
+        print, '       dataset. The first three dimensions of SCALAR and ' $
+            + 'DATA must match.'
+        print, '    [TXY]TITLE: A string specifying the plot titles for ' $
             + 'each dimension.'
         print, '       Default titles are [''t'', ''x'', ''y''].'
-        print, '    data_title: A string specifying the title of the dataset.'
+        print, '    DATA_TITLE: A string specifying the title of the dataset.'
         print, '       Default is ''data''.'
-        print, '    p: 3-element array specifying how to permute the ' $
+        print, '    P: 3-element array specifying how to permute the ' $
             + 'dataset dimensions.'
         print, '       For example, [2, 1, 0] swaps the first and third ' $
             + 'dimensions.'
-        print, '    /f: Set this flag to title the t axis as f (e.g., for ' $
+        print, '    /F: Set this flag to title the T axis as ''f'' (e.g., for ' $
             + 'FFTs).'
-        print, '    /h5select: Use the current selection on an h5variable ' $
+        print, '    /H5SELECT: Use the current selection on an h5variable ' $
             + 'dataset.'
-        print, '    /help: Print this message.'
+        print, '    /HELP: Print this message.'
         print
         return
     endif
@@ -1806,19 +1915,74 @@ pro browse, data_in, t_in, x_in, y_in, $
     endelse
 
     widget_control, /hourglass
-    
-    if (size(data_in, /type) eq 11) && $
-            (obj_class(data_in) eq 'H5VARIABLE') then begin
-        message, 'Restoring H5VAR dataset...', /info
-        data = reform(data_in->r(select=h5select))
-    endif else begin
-        ; arg_present checks if data_in was passed by reference (true) or
-        ; value (false)
-        if arg_present(data_in) then begin
-            data = reform(data_in)
+
+    if n_elements(scalar) eq 0 then begin
+        nscalar = 0
+        if (size(data_in, /type) eq 11) && $
+                (obj_class(data_in) eq 'H5VARIABLE') then begin
+            message, 'Restoring H5VAR dataset...', /info
+            data = reform(data_in->r(select=h5select))
         endif else begin
-            data = reform(temporary(data_in))
+            ; arg_present checks if data_in was passed by reference (true) or
+            ; value (false)
+            if arg_present(data_in) then begin
+                data = reform(data_in)
+            endif else begin
+                data = reform(temporary(data_in))
+            endelse
         endelse
+    endif else begin
+        ; flag if h5variable objects need to be restored
+        h5variable = 0
+
+        ; First, calculate the dimensions of the scalar dataset and create the appropriate IDL code to read it in.
+        if (size(scalar, /type) eq 11) && $
+                (obj_class(scalar) eq 'H5VARIABLE') then begin
+            h5variable = 1
+            scalar_dims = scalar->dims()
+            scalar_string = 'reform(scalar->r(select=scalarselect), product(scalar_dims), /overwrite)'
+        endif else if arg_present(scalar) then begin
+            scalar_dims = size(scalar, /dimensions)
+            scalar_string = 'reform(scalar, product(scalar_dims))'
+        endif else if ~arg_present(scalar) then begin
+            scalar_dims = size(scalar, /dimensions)
+            scalar_string = 'reform(temporary(scalar), product(scalar_dims))'
+        endif
+
+        ; Do the same for the vector dataset.
+        if (size(data_in, /type) eq 11) && $
+                (obj_class(data_in) eq 'H5VARIABLE') then begin
+            h5variable = 1
+            data_dims = data_in->dims()
+            data_string = 'reform(data_in->r(select=h5select), product(data_dims), /overwrite)'
+        endif else if arg_present(data_in) then begin
+            data_dims = size(data_in, /dimensions)
+            data_string = 'reform(data_in, product(data_dims))'
+        endif else if ~arg_present(data_in) then begin
+            data_dims = size(data_in, /dimensions)
+            data_string = 'reform(temporary(data_in), product(data_dims))'
+        endif
+        data_dims = data_dims[where(data_dims ne 1)]
+        scalar_dims = scalar_dims[where(scalar_dims ne 1)]
+        if n_elements(scalar_dims) eq 3 then $
+            nscalar = 1 $
+        else $
+            nscalar = scalar_dims[3]
+
+
+        if n_elements(data_dims) le 3 then $
+            message, 'SCALAR keyword only allowed for vector (4D) datasets.'
+        if ~array_equal(data_dims[0:2], scalar_dims[0:2]) then $
+            message, 'SCALAR array dimensions do not match DATA array dimensions.'
+  
+        if h5variable then $
+            message, 'Restoring H5VAR dataset...', /info
+
+        success = execute('data = [' + data_string + ', ' + scalar_string + ']')
+        if ~success then $
+            message, 'Error combining DATA and SCALAR variables.'  
+        data_dims[3] += nscalar
+        data = reform(data, data_dims, /overwrite)
     endelse
 
     nonfinite = where(~finite(data), count)
@@ -1901,8 +2065,17 @@ pro browse, data_in, t_in, x_in, y_in, $
         4: begin
                 wDimsBase = widget_base(wToolbarBase, /base_align_center, $
                     /row, frame=1)
-                dimList = [ 'MAG', string(indgen((size(*state.data, $
-                    /dimensions))[3]), format='(i0)') ]
+                if nscalar eq 0 then $
+                    dimList = [ 'MAG', string(indgen((size(*state.data, $
+                    /dimensions))[3]), format='(i0)') ] $
+                else if nscalar eq 1 then $
+                    dimList = [ 'MAG', string(indgen(data_dims[3]-nscalar), $
+                    format='(i0)'), 'S'] $
+                else $
+                    dimList = [ 'MAG', string(indgen(data_dims[3]-nscalar), $
+                    format='(i0)'), 'S' + string(indgen(nscalar), $
+                    format='(i0)') ] 
+                    
                 state.wDims[0] = widget_droplist(wDimsBase, value = dimList, $
                     event_pro='DimList4D', title='DATA:')    
            end
@@ -1912,7 +2085,7 @@ pro browse, data_in, t_in, x_in, y_in, $
         /row, frame=1)
     if ndims eq 4 then begin
         state.wMainPlotType = widget_droplist(wMainPlotButtonsBase, $
-            value=['Contour', 'Level', 'Surface', 'ShadeSurface', 'Velovect'], $
+            value=['Contour', 'Level', 'Surface', 'ShadeSurface', 'Vector', 'Vector+Contour'], $
             event_pro='MainPlotTypeList')
         widget_control, state.wMainPlotType, set_droplist_select=4
         state.mainplot_type = 4
