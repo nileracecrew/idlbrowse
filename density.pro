@@ -1,6 +1,6 @@
 pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
              nlevels=nlevels, fill=fill, bar_charsize=bar_charsize, $
-             bar_pad=bar_pad, bar_title=bar_title, scientific=scientific, $
+             bar_pad=bar_pad, bar_title=bar_title, bar_format=bar_format, scientific=scientific, $
              _extra=extra
     compile_opt idl2, hidden
     on_error, 2
@@ -48,13 +48,15 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
         zmax = alog10(zmax)
         zmin = alog10(zmin)
         spacing = float(zmax - zmin) / nlevels
-        levels=10.^(findgen(nlevels)*spacing + zmin)
+        levels = findgen(nlevels)*spacing + zmin
+        c_colors = bytscl(levels, top=254)
+	levels = 10.^levels
     endif else begin       
         spacing = float(zmax - zmin) / nlevels
         levels = findgen(nlevels)*spacing + zmin
+        c_colors = bytscl(levels, top=254)
     endelse
-    c_colors = bytscl(levels, top=254)
-
+ 
     if zmin ge zmax then begin
         z_error = 1
         zmax = zmin + 1
@@ -74,11 +76,13 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
 
     if keyword_set(colorbar) then begin
         if keyword_set(zlog) then $
-            format='(%"' + '10!U%i!N' + '")' $
+            format='(%"' + '10!U%0.1f!N' + '")' $
         else if keyword_set(scientific) then $
             format='(%"%0.2e")' $
         else $
             format='(g0.2)'
+        if keyword_set(bar_format) then $
+            format=bar_format
         if n_elements(extra) ne 0 then begin
             if where(tag_names(extra) eq 'THICK') ne -1 then $
                 thick=extra.thick
@@ -89,7 +93,7 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
             if where(tag_names(extra) eq 'CHARTHICK') ne -1 then $
                 chartick = extra.charthick
         endif
-        colorbar, /vertical, range=[zmin,zmax], format=format, ncolors=254, charsize=bar_charsize, thick=thick, xthick=xthick, ythick=ythick, charthick=charthick, title=bar_title
+        browse_colorbar, /vertical, range=[zmin,zmax], format=format, ncolors=254, charsize=bar_charsize, thick=thick, xthick=xthick, ythick=ythick, charthick=charthick, title=bar_title
         !p.region = old_region
     endif
 end
