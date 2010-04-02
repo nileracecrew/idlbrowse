@@ -121,11 +121,11 @@ pro vvv, u_in, v_in, xpos_in, ypos_in, length = length, $
     endif 
 
     ; scale the radii of the arrows so that they all fit into a xy-bin
-    max_r = min([xbin, ybin])/2
+    max_r = min([xbin, ybin])/2 * length
     if keyword_set(no_arrow_resize) then $
         r = replicate(max_r, n_elements(u)) $
     else begin
-        r = mag/max(mag) > 0.10
+        r = mag/max(mag) > 0.15
         r *= max_r
     endelse
     
