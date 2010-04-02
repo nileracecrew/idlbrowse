@@ -1716,8 +1716,8 @@ pro reset_view, state, no_redraw=no_redraw
     state.mainplot_type = widget_info(state.wMainPlotType, /droplist_select)
 
     ; By default, scale the z-axis according to the vector magnitude if we have
-    ; a velovect plot or 'MAG' is selected.
-    if (state.mainplot_type eq 4) || (state.zi eq 0) then begin
+    ; a velovect plot and 'MAG' is selected.
+    if (state.mainplot_type eq 4) && (state.zi eq 0) then begin
         state.mainplot_axes[2].min = 0.
         state.mainplot_axes[2].max = state.ref_mag
         state.cut_axes[*, 1].min = 0.
