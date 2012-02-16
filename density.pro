@@ -36,21 +36,31 @@ pro density, z, x, y, zmin=zmin, zmax=zmax, zlog=zlog, colorbar=colorbar, $
 
 
     if keyword_set(zlog) then begin
+        ; if zmin is not positive, then we need to adjust the levels
         if zmin le 0 then begin
+            ; catch the case of all zeros
             if zmax le 0 then begin
                 z_error = 1
                 zmin = 1.
                 zmax = 9.
             endif else begin
-                zmin = min(z0[where(z0 gt 0)])
+                ; find the smallest positive value of z to use as the min level
+                pos_index = where(z0 gt 0, count)
+                if count gt 0 then $
+                    zmin = min(z0[pos_index]) $
+                else begin
+                    z_error = 1
+                    zmin = 1.
+                    zmax = 9.
+                endelse
             endelse
-        endif
+        endif 
         zmax = alog10(zmax)
         zmin = alog10(zmin)
         spacing = float(zmax - zmin) / nlevels
         levels = findgen(nlevels)*spacing + zmin
         c_colors = bytscl(levels, top=254)
-	levels = 10.^levels
+	    levels = 10.^levels
     endif else begin       
         spacing = float(zmax - zmin) / nlevels
         levels = findgen(nlevels)*spacing + zmin
