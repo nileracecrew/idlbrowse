@@ -2079,6 +2079,7 @@ pro browse, data_in, t_in, x_in, y_in, scalar = scalar, $
                 state.wDims[0] = widget_droplist(wDimsBase, value = dimList, $
                     event_pro='DimList4D', title='DATA:')    
            end
+        else: message, 'DATA must have 2, 3, or 4 dimensions.'
     endcase
     ; create the plot type droplist
     wMainPlotButtonsBase = widget_base(wToolbarBase, /base_align_center, $
